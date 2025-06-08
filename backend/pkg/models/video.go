@@ -37,6 +37,7 @@ type Video struct {
 	// Tracking data information
 	HasTrackingData bool       `json:"has_tracking_data"`
 	TrackingPath    string     `json:"tracking_path,omitempty"`
+	EventFilePath   string     `json:"event_file_path,omitempty"`
 }
 
 /**

@@ -29,6 +29,18 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService) http.Handl
 
 	// Create controller instances with dependencies
 	videoController := controllers.NewVideoController(storage)
+	// VideoService is needed for MatchController.
+	// NewVideoService is not directly exported by services package in the provided context,
+	// but typically it would be. Assuming services.NewVideoService(storage) is how it's created.
+	// If VideoService is already part of videoController, we could pass videoController.videoService
+	// For now, let's assume we can create a new VideoService instance if needed.
+	// However, VideoController already has a videoService.
+	// Let's assume NewMatchController can take the VideoService from VideoController if it's made public,
+	// or we create a new one. For simplicity and if VideoService is lightweight to create:
+	videoServiceForMatch := services.NewVideoService(storage) // Assuming this constructor exists
+	matchController := controllers.NewMatchController(videoServiceForMatch)
+	playerController := controllers.NewPlayerController()
+
 
 	// API version prefix
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
@@ -59,8 +71,15 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService) http.Handl
 	analyticsRouter := apiRouter.PathPrefix("/analytics").Subrouter()
 	analyticsRouter.Use(middleware.Authenticate)
 	analyticsRouter.HandleFunc("/matches/{id}", controllers.GetMatchAnalytics).Methods("GET")
-	analyticsRouter.HandleFunc("/players/{id}", controllers.GetPlayerAnalytics).Methods("GET")
+	analyticsRouter.HandleFunc("/players/{id}", controllers.GetPlayerAnalytics).Methods("GET") // Player details by ID
 	analyticsRouter.HandleFunc("/teams/{id}", controllers.GetTeamAnalytics).Methods("GET")
+	analyticsRouter.HandleFunc("/players/image_search", playerController.SearchPlayerImage).Methods("GET") // Player image search by name
+
+	// Matches list endpoint - requires authentication
+	// This is a new top-level resource under /api/v1, similar to /videos or /users
+	matchesRouter := apiRouter.PathPrefix("/matches").Subrouter()
+	matchesRouter.Use(middleware.Authenticate)
+	matchesRouter.HandleFunc("", matchController.ListMatches).Methods("GET")
 
 	// WebSocket endpoint for real-time updates
 	router.HandleFunc("/ws", controllers.WebSocketHandler)
