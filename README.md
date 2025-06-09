@@ -7,6 +7,201 @@ The platform consists of three main services:
 2.  **Python API:** Performs intensive physical statistics calculations on tracking and event data.
 3.  **Next.js Frontend:** Provides the user interface for uploading data, viewing matches, and analyzing dashboards.
 
+## System Architecture Overview
+
+This section provides a high-level overview of the AIFAA Football Analytics Platform, detailing its components, how they interact, and the flow of data through the system.
+
+The platform is designed to ingest football match data (videos, tracking information, event data), process it to extract valuable analytics, and present these insights to the user through a web interface.
+
+### Components
+
+The platform is comprised of three core components:
+
+*   **Frontend:** A Next.js (React) web application serving as the primary user interface. It allows users to:
+    *   Upload match-related data (videos, tracking files, event files).
+    *   View a list of available matches and their current analytics processing status.
+    *   Access detailed dashboards for individual matches, showcasing various statistics and visualizations.
+    *   It interacts with the Go Backend via RESTful API calls.
+
+*   **Go Backend:** A Go-based API built using the `gorilla/mux` router. Its main responsibilities include:
+    *   Handling user authentication and authorization.
+    *   Managing metadata for videos and matches (e.g., titles, descriptions, team information, file paths), which is typically stored in a PostgreSQL database.
+    *   Processing file uploads from the frontend and storing them in a designated file storage solution (e.g., local filesystem, Azure Blob Storage).
+    *   Orchestrating the analytics pipeline by triggering the Python API for processing and fetching analytics status/results.
+    *   Serving as a proxy for analytics data requests from the frontend to the Python API.
+
+*   **Python API:** A Python FastAPI application dedicated to computational tasks. Its key functions are:
+    *   Exposing an internal API endpoint (`/process-match`) that the Go Backend calls to initiate the asynchronous analysis of tracking and event data for a specific match.
+    *   Reading data files from the shared storage location based on paths provided by the Go Backend.
+    *   Performing intensive calculations to generate physical statistics, player metrics, and team analytics.
+    *   Providing endpoints for the Go Backend to query the status of processing (`/match/{id}/status`) and retrieve the computed analytics data (e.g., `/match/{id}/stats/summary`, `/match/{id}/player/{player_id}/details`).
+
+### Data Flow
+
+The following outlines the primary data flows within the AIFAA platform:
+
+1.  **Video/Data Upload and Analytics Processing Trigger:**
+    *   **User (Frontend):** Initiates an upload of match-related files (video is optional, tracking and event data files are typically required for analytics) along with any associated metadata (title, teams, etc.) through the web interface.
+    *   **Frontend to Go Backend:** Sends a `POST` request (e.g., to `/api/v1/videos`) with the files and metadata.
+    *   **Go Backend (`VideoController`):**
+        *   Generates a unique ID for the match/video.
+        *   Saves the uploaded files to the configured file storage (e.g., Azure Blob Storage, local disk). Paths are typically structured using the generated ID.
+        *   Stores metadata (including file paths, title, user-provided details) in the PostgreSQL database.
+        *   Makes a `POST` request to the **Python API**'s `/process-match` endpoint, providing the unique match ID and the storage paths to the tracking and event data files.
+    *   **Python API:**
+        *   Receives the request and queues the data for asynchronous processing.
+        *   Acknowledges the request to the Go Backend (e.g., with a `202 Accepted` response).
+        *   In the background, it reads the specified data files from the shared storage, performs complex calculations, and stores the resulting analytics.
+
+2.  **Viewing Match List and Analytics Status:**
+    *   **User (Frontend):** Navigates to the page displaying the list of matches (e.g., `/matches`).
+    *   **Frontend to Go Backend:** Sends a `GET` request (e.g., to `/api/v1/matches`).
+    *   **Go Backend (`MatchController`):**
+        *   Fetches the list of matches/videos from the PostgreSQL database.
+        *   For each match in the list, it makes a `GET` request to the **Python API**'s `/match/{match_id}/status` endpoint to retrieve the current analytics processing status.
+        *   Compiles the list of matches along with their respective analytics statuses.
+    *   **Go Backend to Frontend:** Returns the combined list (match details + analytics status) as a JSON response.
+    *   **Frontend:** Displays the list of matches, often color-coding or indicating the status of analytics (e.g., Pending, Processing, Processed, Error).
+
+3.  **Viewing Detailed Match Analytics:**
+    *   **User (Frontend):** Selects a specific match from the list to view its detailed analytics dashboard (e.g., navigates to `/dashboard/{match_id}`).
+    *   **Frontend to Go Backend:** Sends `GET` requests for specific analytics data, (e.g., to `/api/v1/analytics/matches/{match_id}` for summary stats, or `/api/v1/analytics/players/{player_id}?match_id={match_id}` for player-specific data).
+    *   **Go Backend (`AnalyticsController`):**
+        *   Acts as a proxy. Forwards these requests to the relevant endpoints on the **Python API** (e.g., `/match/{match_id}/stats/summary`, `/match/{match_id}/player/{player_id}/details`).
+    *   **Python API:**
+        *   Retrieves the requested pre-computed/processed analytics data.
+        *   Returns the data in JSON format to the Go Backend.
+    *   **Go Backend to Frontend:** Relays the JSON response from the Python API back to the frontend.
+    *   **Frontend:** Renders the received data into charts, tables, and other visualizations on the match dashboard.
+
+### Data Sources
+
+The platform utilizes several data storage and configuration mechanisms:
+
+*   **PostgreSQL Database:**
+    *   **Usage:** Primarily managed by the Go Backend.
+    *   **Content:** Stores metadata such as user accounts, video/match details (e.g., title, description, associated team names, competition, season), paths to files in the File Storage, and potentially other relational application data.
+    *   **Interaction:** The Go Backend performs CRUD (Create, Read, Update, Delete) operations on this database.
+
+*   **File Storage (e.g., Azure Blob Storage, Local Filesystem):**
+    *   **Usage:** Stores large binary files. Azure Blob Storage is the primary cloud storage solution example for a deployed environment, while a local filesystem can be used for local development (facilitated by `EXTERNAL_DATA_MOUNT`).
+    *   **Content:** Raw uploaded files, including video files (e.g., MP4, AVI), tracking data files (e.g., Parquet, GZIP compressed), and event data files.
+    *   **Interaction with Azure Blob Storage (Go Backend):**
+        *   The Go Backend's `StorageService` is designed to interact with Azure Blob Storage. This is typically achieved using the Azure SDK for Go.
+        *   It uses configuration details such as Azure Storage `AccountName`, `AccountKey` (or a SAS token), and `ContainerName` to connect to the Azure service. These configurations are loaded from environment variables or a `config.json` file (as defined in `backend/pkg/config/config.go`).
+        *   Uploaded files are stored as blobs within the specified container. The Go backend organizes these blobs using a structured path convention within the container, such as `videos/{first_two_chars_of_id}/{next_two_chars_of_id}/{videoID}/{original_filename_or_typed_filename}`. This convention helps in managing and locating files.
+    *   **Interaction (General):**
+        *   The **Go Backend** writes files to the configured storage (Azure Blob Storage or local disk) upon upload by the user.
+        *   The **Python API** reads these files from the storage for analytics processing, using file paths (which could be blob URLs or local paths) provided by the Go Backend.
+    *   **Critical Note:** For the system to function, the Python API must have read access to the locations where the Go Backend stores these files.
+        *   In an Azure Blob Storage setup, this means the Python API might also need credentials or be able to access blobs via public URLs if permissions are set accordingly, or use SAS tokens provided by the Go backend (though this specific mechanism isn't detailed in current exploration).
+        *   For local development, `EXTERNAL_DATA_MOUNT` facilitates shared access to a local directory.
+        *   In containerized environments (like Docker Compose), this is managed using shared volumes that map to a local directory or potentially configured to use cloud storage.
+
+*   **Python API Internal Data Management:**
+    *   **Usage:** The Python API processes raw data and generates analytical results.
+    *   **Content:** The derived statistics, time-series data, and other analytical outputs.
+    *   **Interaction:** The Python API serves this processed data via its own API endpoints. The exact internal storage mechanism (e.g., in-memory cache, file-based cache, Redis, or a dedicated database for analytics results) is an implementation detail of the Python API, but it's abstracted away from other components, which simply query its API.
+
+*   **Configuration Files & Environment Variables:**
+    *   **Go Backend:** Uses environment variables (potentially loaded from a `.env` file or `config.json`) for settings like database connection strings, file storage credentials (e.g., Azure Blob Storage account keys), the URL of the Python API (`PYTHON_API_URL`), and server port.
+    *   **Python API:** Configured via its startup command (e.g., host/port for Uvicorn) and relies on the Go Backend to provide paths to data files. May have its own internal configurations for processing parameters.
+    *   **Frontend:** Uses environment variables (e.g., `.env.local`) for settings like the Go Backend API URL (`NEXT_PUBLIC_API_BASE_URL`).
+
+### Key Interactions & API Endpoints
+
+While not exhaustive, this list highlights some of the primary API endpoints and interactions between services:
+
+*   **Frontend -> Go Backend:**
+    *   `POST /api/v1/auth/login`: User authentication.
+    *   `POST /api/v1/videos`: Uploading video, tracking, and event data.
+    *   `GET /api/v1/matches`: Fetching the list of available matches and their analytics statuses.
+    *   `GET /api/v1/analytics/matches/{match_id}`: Fetching summary analytics for a specific match.
+    *   `GET /api/v1/analytics/players/{player_id}?match_id={match_id}`: Fetching detailed time-series data for a player in a match.
+    *   `GET /api/v1/analytics/teams/{team_id}?match_id={match_id}`: Fetching team summary data over time for a match.
+
+*   **Go Backend -> Python API:**
+    *   `POST /process-match`: (Called by Go Backend's `VideoController` after file upload)
+        *   **Request Body:** `{ "tracking_data_path": "...", "event_data_path": "...", "match_id": "..." }`
+        *   **Purpose:** To trigger asynchronous processing of the specified match data files.
+    *   `GET /match/{match_id}/status`: (Called by Go Backend's `MatchController` when listing matches)
+        *   **Purpose:** To get the current analytics processing status for a match.
+        *   **Response Body (Example):** `{ "status": "processed", "match_id": "..." }`
+    *   `GET /match/{match_id}/stats/summary`: (Called by Go Backend's `AnalyticsController` as a proxy)
+        *   **Purpose:** To retrieve overall player and team statistics for a processed match.
+    *   `GET /match/{match_id}/player/{player_id}/details`: (Called by Go Backend's `AnalyticsController` as a proxy)
+        *   **Purpose:** To retrieve detailed time-series data for a specific player.
+    *   `GET /match/{match_id}/team/{team_id}/summary-over-time`: (Called by Go Backend's `AnalyticsController` as a proxy)
+        *   **Purpose:** To retrieve aggregated team metrics over time intervals.
+
+*   **Internal Go Backend Interactions:**
+    *   Interacts with PostgreSQL database for metadata management.
+    *   Interacts with the chosen File Storage solution (e.g., Azure Blob Storage) for file I/O.
+
+*   **Internal Python API Interactions:**
+    *   Reads files from the shared File Storage.
+    *   Manages its internal cache/storage for computed analytics.
+
+### Architecture & Data Flow Diagram
+
+The following diagram provides a simplified visual representation of the system architecture and the main data flows described above:
+
+```text
++-----------------+      +---------------------+      +-------------------+
+|   User Browser  |----->|  Frontend (Next.js) |      | File Storage      |
+| (Web Interface) |      | (nginx/standalone)  |      | (Azure Blob / FS) |
++-----------------+      +----------^----------+      +---------^---------+
+      ^      |                      |   ^                        |   ^
+      |      | (HTML/JS/CSS)        |   | (JSON API)             |   | (Files)
+      |      |                      |   |                        |   |
+(Display)   (Upload Req)            |   |                        |   |
+      |      |                      |   +------------------------+---+ (Read/Write Files)
+      |      |                      |   | (API Calls)            |   |
+      |      v                      v   |                        |   |
+      +--------------------------+ |   |                        |   |
+      |                          | |   |                        |   |
+      |     Go Backend (Go API)  | |   |                        |   |
+      | (Docker Container / Host)| |   |                        |   |
+      |                          | |   |                        |   |
+      |  - Auth                  <---+                            |   |
+      |  - Video/Match Metadata  |                                |   |
+      |  - File Upload Handler   |---->(Save Files)---------------+   |
+      |  - Analytics Proxy       |                                   |
+      |                          |                                   |
+      |  (Interacts with DB)     |---(Python API Calls)------------+ | (Read Files for Processing)
+      |  +-------------------+   |                                 | |
+      |  | PostgreSQL DB     |<--+                                 | |
+      |  +-------------------+   |                                 | |
+      +--------------------------+                                 | |
+                  ^                                                | |
+                  | (JSON API - Process, Status, Data)             | |
+                  |                                                | |
+                  v                                                | |
+      +--------------------------+                                 | |
+      | Python API (FastAPI)     |                                 | |
+      | (Docker Container / Host)|                                 | |
+      |                          |<---(Read Source Data Files)------+
+      |  - Data Processing       |
+      |  - Statistics Engine     |
+      |  - Serves Analytics Data |
+      |  (Internal Cache/Store)  |
+      +--------------------------+
+```
+
+**Diagram Legend & Notes:**
+
+*   Arrows (`-->`, `<--`, `<-->`) indicate the direction of data flow or requests.
+*   `User Browser`: Represents the end-user interacting with the system.
+*   `Frontend`: The Next.js application rendering the UI and making API calls.
+*   `Go Backend`: The core API service handling business logic, data management, and orchestration.
+*   `Python API`: The specialized service for data processing and analytics.
+*   `File Storage`: Represents where raw data files (video, tracking, events) are stored (e.g., Azure Blob Storage, a local/network file system).
+*   `PostgreSQL DB`: The relational database for metadata.
+*   `(API Calls)` / `(JSON API)`: Indicate typical RESTful API interactions.
+*   The diagram simplifies some aspects for clarity, such as detailed network configurations or specific authentication flows within API calls.
+
+*(As per user suggestion, a more detailed Mermaid diagram could be added here in the future if desired.)*
+
 ## Running the Platform with Docker Compose
 
 This is the recommended way to run the entire AIFAA Football Analytics Platform for development and testing, as it simplifies setup and ensures consistency across services.
