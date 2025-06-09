@@ -173,5 +173,255 @@ func (r *PostgresVideoRepository) FindAll(limit, offset int) ([]*Video, error) {
 	return videos, nil
 }
 
-// Additional repository methods would be implemented here
-// Create, Update, Delete, FindByMatchID, FindByTeam, FindByDateRange, FindByProcessingState
+// Create inserts a new video into the database
+func (r *PostgresVideoRepository) Create(video *Video) error {
+	query := `
+		INSERT INTO videos (id, title, description, file_path, storage_provider,
+				   duration, resolution, format, size, processing_state,
+				   created_at, updated_at,
+				   match_id, match_date, home_team, away_team, competition, season,
+				   has_tracking_data, tracking_path)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+	`
+	
+	_, err := r.db.Exec(query,
+		video.ID, video.Title, video.Description, video.FilePath, video.StorageProvider,
+		video.Duration, video.Resolution, video.Format, video.Size, video.ProcessingState,
+		video.CreatedAt, video.UpdatedAt,
+		video.MatchID, video.MatchDate, video.HomeTeam, video.AwayTeam, video.Competition, video.Season,
+		video.HasTrackingData, video.TrackingPath,
+	)
+	
+	return err
+}
+
+// Update modifies an existing video in the database
+func (r *PostgresVideoRepository) Update(video *Video) error {
+	query := `
+		UPDATE videos 
+		SET title = $2, description = $3, file_path = $4, storage_provider = $5,
+		    duration = $6, resolution = $7, format = $8, size = $9, processing_state = $10,
+		    updated_at = $11, match_id = $12, match_date = $13, home_team = $14, 
+		    away_team = $15, competition = $16, season = $17, has_tracking_data = $18, 
+		    tracking_path = $19
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	
+	result, err := r.db.Exec(query,
+		video.ID, video.Title, video.Description, video.FilePath, video.StorageProvider,
+		video.Duration, video.Resolution, video.Format, video.Size, video.ProcessingState,
+		time.Now(), video.MatchID, video.MatchDate, video.HomeTeam, video.AwayTeam,
+		video.Competition, video.Season, video.HasTrackingData, video.TrackingPath,
+	)
+	
+	if err != nil {
+		return err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rowsAffected == 0 {
+		return errors.New("video not found")
+	}
+	
+	return nil
+}
+
+// Delete performs a soft delete on a video
+func (r *PostgresVideoRepository) Delete(id string) error {
+	query := `UPDATE videos SET deleted_at = $2 WHERE id = $1 AND deleted_at IS NULL`
+	
+	result, err := r.db.Exec(query, id, time.Now())
+	if err != nil {
+		return err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rowsAffected == 0 {
+		return errors.New("video not found")
+	}
+	
+	return nil
+}
+
+// FindByMatchID retrieves videos for a specific match
+func (r *PostgresVideoRepository) FindByMatchID(matchID string) ([]*Video, error) {
+	query := `
+		SELECT id, title, description, file_path, storage_provider,
+			   duration, resolution, format, size, processing_state,
+			   created_at, updated_at, deleted_at,
+			   match_id, match_date, home_team, away_team, competition, season,
+			   has_tracking_data, tracking_path
+		FROM videos
+		WHERE match_id = $1 AND deleted_at IS NULL
+		ORDER BY created_at DESC
+	`
+	
+	rows, err := r.db.Query(query, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var videos []*Video
+	for rows.Next() {
+		var video Video
+		err := rows.Scan(
+			&video.ID, &video.Title, &video.Description, &video.FilePath, &video.StorageProvider,
+			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
+			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
+			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
+			&video.HasTrackingData, &video.TrackingPath,
+		)
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		videos = append(videos, &video)
+	}
+	
+	return videos, nil
+}
+
+// FindByTeam retrieves videos for a specific team
+func (r *PostgresVideoRepository) FindByTeam(teamName string, limit, offset int) ([]*Video, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	
+	query := `
+		SELECT id, title, description, file_path, storage_provider,
+			   duration, resolution, format, size, processing_state,
+			   created_at, updated_at, deleted_at,
+			   match_id, match_date, home_team, away_team, competition, season,
+			   has_tracking_data, tracking_path
+		FROM videos
+		WHERE (home_team = $1 OR away_team = $1) AND deleted_at IS NULL
+		ORDER BY match_date DESC
+		LIMIT $2 OFFSET $3
+	`
+	
+	rows, err := r.db.Query(query, teamName, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var videos []*Video
+	for rows.Next() {
+		var video Video
+		err := rows.Scan(
+			&video.ID, &video.Title, &video.Description, &video.FilePath, &video.StorageProvider,
+			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
+			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
+			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
+			&video.HasTrackingData, &video.TrackingPath,
+		)
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		videos = append(videos, &video)
+	}
+	
+	return videos, nil
+}
+
+// FindByDateRange retrieves videos within a date range
+func (r *PostgresVideoRepository) FindByDateRange(start, end time.Time, limit, offset int) ([]*Video, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	
+	query := `
+		SELECT id, title, description, file_path, storage_provider,
+			   duration, resolution, format, size, processing_state,
+			   created_at, updated_at, deleted_at,
+			   match_id, match_date, home_team, away_team, competition, season,
+			   has_tracking_data, tracking_path
+		FROM videos
+		WHERE match_date BETWEEN $1 AND $2 AND deleted_at IS NULL
+		ORDER BY match_date DESC
+		LIMIT $3 OFFSET $4
+	`
+	
+	rows, err := r.db.Query(query, start, end, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var videos []*Video
+	for rows.Next() {
+		var video Video
+		err := rows.Scan(
+			&video.ID, &video.Title, &video.Description, &video.FilePath, &video.StorageProvider,
+			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
+			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
+			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
+			&video.HasTrackingData, &video.TrackingPath,
+		)
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		videos = append(videos, &video)
+	}
+	
+	return videos, nil
+}
+
+// FindByProcessingState retrieves videos by processing state
+func (r *PostgresVideoRepository) FindByProcessingState(state string, limit, offset int) ([]*Video, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	
+	query := `
+		SELECT id, title, description, file_path, storage_provider,
+			   duration, resolution, format, size, processing_state,
+			   created_at, updated_at, deleted_at,
+			   match_id, match_date, home_team, away_team, competition, season,
+			   has_tracking_data, tracking_path
+		FROM videos
+		WHERE processing_state = $1 AND deleted_at IS NULL
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+	
+	rows, err := r.db.Query(query, state, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var videos []*Video
+	for rows.Next() {
+		var video Video
+		err := rows.Scan(
+			&video.ID, &video.Title, &video.Description, &video.FilePath, &video.StorageProvider,
+			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
+			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
+			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
+			&video.HasTrackingData, &video.TrackingPath,
+		)
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		videos = append(videos, &video)
+	}
+	
+	return videos, nil
+}

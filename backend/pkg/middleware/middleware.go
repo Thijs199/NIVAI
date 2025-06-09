@@ -130,7 +130,7 @@ func Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Extract token
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		_ = strings.TrimPrefix(authHeader, "Bearer ")
 
 		// TODO: Implement actual JWT validation logic
 		// This is a placeholder - in a real implementation, we would:

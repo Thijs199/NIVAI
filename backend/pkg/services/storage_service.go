@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/url"
@@ -118,11 +119,27 @@ func NewAzureBlobStorage(accountName, accountKey, containerName string) (Storage
 func (s *AzureBlobStorage) UploadFile(file multipart.File, path string) (*FileUploadInfo, error) {
 	ctx := context.Background()
 
+	// Get file size
+	fileSeeker, ok := file.(io.Seeker)
+	if !ok {
+		return nil, errors.New("file does not support seeking")
+	}
+	
+	size, err := fileSeeker.Seek(0, io.SeekEnd)
+	if err != nil {
+		return nil, err
+	}
+	
+	_, err = fileSeeker.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create blob URL
 	blobURL := s.containerURL.NewBlockBlobURL(path)
 
 	// Upload file
-	info, err := azblob.UploadStreamToBlockBlob(
+	_, err = azblob.UploadStreamToBlockBlob(
 		ctx,
 		file,
 		blobURL,
@@ -139,7 +156,7 @@ func (s *AzureBlobStorage) UploadFile(file multipart.File, path string) (*FileUp
 	return &FileUploadInfo{
 		Path:     path,
 		Provider: "azure_blob",
-		Size:     info.ContentLength,
+		Size:     size,
 		Format:   strings.TrimPrefix(filepath.Ext(path), "."),
 	}, nil
 }
@@ -164,9 +181,7 @@ func (s *AzureBlobStorage) GetFile(path string) (io.ReadCloser, error) {
 	}
 
 	// Create a reader from the response
-	reader := response.Body(azblob.RetryReaderOptions{
-		MaxRetries: 3,
-	})
+	reader := response.Body(azblob.RetryReaderOptions{})
 
 	return reader, nil
 }
@@ -215,7 +230,9 @@ func (s *AzureBlobStorage) GetStreamURL(path string) (string, error) {
 
 	// Construct the SAS URL
 	qp := sasQueryParams.Encode()
-	return blobURL.URL().String() + "?" + qp, nil
+	blobURLWithSAS := blobURL.URL()
+	blobURLWithSAS.RawQuery = qp
+	return blobURLWithSAS.String(), nil
 }
 
 /**
@@ -239,13 +256,13 @@ func (s *AzureBlobStorage) GetFileMetadata(path string) (map[string]string, erro
 
 	// Extract metadata into a map
 	metadata := make(map[string]string)
-	for k, v := range props.Metadata() {
+	for k, v := range props.NewMetadata() {
 		metadata[k] = v
 	}
 
 	// Add content properties
-	metadata["content-length"] = string(props.ContentLength())
-	metadata["content-type"] = string(props.ContentType())
+	metadata["content-length"] = fmt.Sprintf("%d", props.ContentLength())
+	metadata["content-type"] = props.ContentType()
 	metadata["last-modified"] = props.LastModified().Format(time.RFC3339)
 
 	return metadata, nil

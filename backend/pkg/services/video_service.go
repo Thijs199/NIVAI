@@ -176,7 +176,7 @@ func (s *DefaultVideoService) UploadVideo(file multipart.File, header *multipart
  */
 func (s *DefaultVideoService) DeleteVideo(id string) error {
 	// Get the video to check if it exists and get its file path
-	video, err := s.videoRepo.FindByID(id)
+	_, err := s.videoRepo.FindByID(id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return ErrVideoNotFound
