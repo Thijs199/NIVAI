@@ -84,12 +84,19 @@ The platform utilizes several data storage and configuration mechanisms:
     *   **Interaction:** The Go Backend performs CRUD (Create, Read, Update, Delete) operations on this database.
 
 *   **File Storage (e.g., Azure Blob Storage, Local Filesystem):**
-    *   **Usage:** Stores large binary files.
+    *   **Usage:** Stores large binary files. Azure Blob Storage is the primary cloud storage solution example for a deployed environment, while a local filesystem can be used for local development (facilitated by `EXTERNAL_DATA_MOUNT`).
     *   **Content:** Raw uploaded files, including video files (e.g., MP4, AVI), tracking data files (e.g., Parquet, GZIP compressed), and event data files.
-    *   **Interaction:**
-        *   The **Go Backend** writes files to this storage upon upload by the user.
-        *   The **Python API** reads these files from this storage for analytics processing, using file paths provided by the Go Backend.
-    *   **Critical Note:** For the system to function, the Python API must have read access to the locations where the Go Backend stores these files. In a distributed setup, this often involves shared network storage, cloud storage buckets with appropriate permissions, or persistent volumes in containerized environments. The `EXTERNAL_DATA_MOUNT` variable (or similar mechanism in Docker) facilitates this.
+    *   **Interaction with Azure Blob Storage (Go Backend):**
+        *   The Go Backend's `StorageService` is designed to interact with Azure Blob Storage. This is typically achieved using the Azure SDK for Go.
+        *   It uses configuration details such as Azure Storage `AccountName`, `AccountKey` (or a SAS token), and `ContainerName` to connect to the Azure service. These configurations are loaded from environment variables or a `config.json` file (as defined in `backend/pkg/config/config.go`).
+        *   Uploaded files are stored as blobs within the specified container. The Go backend organizes these blobs using a structured path convention within the container, such as `videos/{first_two_chars_of_id}/{next_two_chars_of_id}/{videoID}/{original_filename_or_typed_filename}`. This convention helps in managing and locating files.
+    *   **Interaction (General):**
+        *   The **Go Backend** writes files to the configured storage (Azure Blob Storage or local disk) upon upload by the user.
+        *   The **Python API** reads these files from the storage for analytics processing, using file paths (which could be blob URLs or local paths) provided by the Go Backend.
+    *   **Critical Note:** For the system to function, the Python API must have read access to the locations where the Go Backend stores these files.
+        *   In an Azure Blob Storage setup, this means the Python API might also need credentials or be able to access blobs via public URLs if permissions are set accordingly, or use SAS tokens provided by the Go backend (though this specific mechanism isn't detailed in current exploration).
+        *   For local development, `EXTERNAL_DATA_MOUNT` facilitates shared access to a local directory.
+        *   In containerized environments (like Docker Compose), this is managed using shared volumes that map to a local directory or potentially configured to use cloud storage.
 
 *   **Python API Internal Data Management:**
     *   **Usage:** The Python API processes raw data and generates analytical results.
