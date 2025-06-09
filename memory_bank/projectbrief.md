@@ -1,8 +1,8 @@
-# NIVAI Project Brief
+# AIFAA Project Brief
 
 ## Project Overview
 
-NIVAI (Netherlands Institute for Video Analysis and Intelligence) is an advanced football tracking data visualization and analysis platform designed for the KNVB (Royal Dutch Football Association). The platform enables football analysts, coaches, and teams to upload, process, and analyze match videos and tracking data to gain tactical insights and performance metrics.
+AIFAA (Netherlands Institute for Video Analysis and Intelligence) is an advanced football tracking data visualization and analysis platform designed for the KNVB (Royal Dutch Football Association). The platform enables football analysts, coaches, and teams to upload, process, and analyze match videos and tracking data to gain tactical insights and performance metrics.
 
 ## Core Objectives
 

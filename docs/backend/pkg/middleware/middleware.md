@@ -1,6 +1,6 @@
 # Middleware Documentation
 
-> This document describes the middleware components that provide cross-cutting concerns like logging, CORS, request tracking, and authentication for the NIVAI API.
+> This document describes the middleware components that provide cross-cutting concerns like logging, CORS, request tracking, and authentication for the AIFAA API.
 
 ## Architecture
 

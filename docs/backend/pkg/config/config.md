@@ -1,6 +1,6 @@
 # Configuration Service Documentation
 
-> This document describes the configuration management system for the NIVAI application, which handles loading and managing application settings from both environment variables and configuration files.
+> This document describes the configuration management system for the AIFAA application, which handles loading and managing application settings from both environment variables and configuration files.
 
 ## Architecture
 

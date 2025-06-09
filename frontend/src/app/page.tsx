@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 /**
- * HomePage is the entry point for the NIVAI football dashboard.
+ * HomePage is the entry point for the AIFAA football dashboard.
  * Displays a welcome screen and provides navigation to main features.
  *
  * @returns The home page component
@@ -19,7 +19,7 @@ export default function HomePage() {
 
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <h1 className="text-5xl font-bold tracking-tight sm:text-6xl mb-6">
-            NIVAI Football Analytics
+            AIFAA Football Analytics
           </h1>
           <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
             Advanced football tracking data visualization and analysis platform.
@@ -169,7 +169,7 @@ export default function HomePage() {
             Ready to elevate your football analysis?
           </h2>
           <p className="text-lg mb-8 text-blue-100">
-            Get started with NIVAI's advanced football analytics platform today.
+            Get started with AIFAA's advanced football analytics platform today.
           </p>
           <Link
             href="/dashboard"

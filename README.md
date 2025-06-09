@@ -1,6 +1,6 @@
-# NIVAI Football Analytics Platform
+# AIFAA Football Analytics Platform
 
-This document provides instructions on how to set up, configure, and run the various components of the NIVAI Football Analytics Platform locally for development and testing.
+This document provides instructions on how to set up, configure, and run the various components of the AIFAA Football Analytics Platform locally for development and testing.
 
 The platform consists of three main services:
 1.  **Go Backend:** Handles API requests, user authentication, video/data uploads, and orchestrates calls to the Python API.
@@ -9,7 +9,7 @@ The platform consists of three main services:
 
 ## Running the Platform with Docker Compose
 
-This is the recommended way to run the entire NIVAI Football Analytics Platform for development and testing, as it simplifies setup and ensures consistency across services.
+This is the recommended way to run the entire AIFAA Football Analytics Platform for development and testing, as it simplifies setup and ensures consistency across services.
 
 ### Prerequisites for Docker Compose
 
@@ -198,4 +198,4 @@ Ensure that the user running the Python API process has read permissions for the
 
 ---
 
-This README provides a starting point for running the NIVAI platform. Refer to individual service directories for more specific documentation if available.
+This README provides a starting point for running the AIFAA platform. Refer to individual service directories for more specific documentation if available.

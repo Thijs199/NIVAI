@@ -1,6 +1,6 @@
 # Authentication Controller Documentation
 
-> This document describes the authentication controller that manages user authentication and token refresh operations in the NIVAI API.
+> This document describes the authentication controller that manages user authentication and token refresh operations in the AIFAA API.
 
 ## Architecture
 

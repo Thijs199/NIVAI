@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-NIVAI employs a modern, cloud-native, microservices architecture that separates concerns into distinct layers while ensuring high performance, scalability, and maintainability.
+AIFAA employs a modern, cloud-native, microservices architecture that separates concerns into distinct layers while ensuring high performance, scalability, and maintainability.
 
 ```mermaid
 flowchart TD

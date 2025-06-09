@@ -1,12 +1,12 @@
 # System Patterns
 
-This document outlines the key architectural patterns, design principles, and code organization standards used throughout the NIVAI project.
+This document outlines the key architectural patterns, design principles, and code organization standards used throughout the AIFAA project.
 
 ## Architectural Patterns
 
 ### Repository Pattern
 
-The NIVAI backend implements the Repository pattern to abstract data access operations and separate business logic from database interactions.
+The AIFAA backend implements the Repository pattern to abstract data access operations and separate business logic from database interactions.
 
 ```mermaid
 classDiagram
@@ -81,7 +81,7 @@ flowchart LR
 
 ### Strategy Pattern
 
-The NIVAI platform uses the Strategy pattern for flexible algorithm selection in data processing:
+The AIFAA platform uses the Strategy pattern for flexible algorithm selection in data processing:
 
 ```mermaid
 classDiagram
@@ -124,7 +124,7 @@ classDiagram
 
 #### Single Responsibility Principle (SRP)
 
-Each component in the NIVAI system has a single responsibility:
+Each component in the AIFAA system has a single responsibility:
 
 - Controllers: Handle HTTP requests and responses
 - Services: Implement business logic

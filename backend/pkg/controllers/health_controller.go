@@ -19,7 +19,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"status":    "ok",
 		"timestamp": time.Now().Format(time.RFC3339),
-		"service":   "NIVAI API",
+		"service":   "AIFAA API",
 	}
 
 	// Set content type and status code

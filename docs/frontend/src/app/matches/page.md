@@ -1,6 +1,6 @@
 # Matches Page Documentation
 
-> This document describes the matches page that provides match listings, filtering, and detailed match analysis in the NIVAI platform.
+> This document describes the matches page that provides match listings, filtering, and detailed match analysis in the AIFAA platform.
 
 ## Architecture
 

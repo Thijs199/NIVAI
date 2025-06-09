@@ -1,6 +1,6 @@
 # Teams Page Documentation
 
-> This document describes the teams page that provides team listings, performance analytics, and detailed statistics in the NIVAI platform.
+> This document describes the teams page that provides team listings, performance analytics, and detailed statistics in the AIFAA platform.
 
 ## Architecture
 
