@@ -8,13 +8,13 @@ WORKDIR /app
 RUN apk add --no-cache git ca-certificates tzdata
 
 # Copy Go module files and download dependencies
-COPY backend/go.mod ./
+COPY backend/go.mod /app/
 # Copy go.sum if it exists (it will be created by go mod download if missing)
-COPY backend/go.sum* ./
+COPY backend/go.sum /app/
 RUN go mod download
 
 # Copy source code
-COPY backend/ ./
+COPY backend/ /app/
 
 # Build the application with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \

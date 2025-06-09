@@ -10,16 +10,18 @@ WORKDIR /app
 # 4. Copy pyproject.toml and poetry.lock files
 COPY pyproject.toml poetry.lock /app/
 
+# Install cmake and g++ for pyarrow build
+RUN apt-get update && apt-get install -y cmake g++
+
 # 5. Configure Poetry to not create virtual environment (we're in a container)
 RUN poetry config virtualenvs.create false
 
-# 6. Install only dependencies (not the project itself)
-RUN poetry install --only main --no-interaction --no-ansi --no-root
-
-# 7. Copy the src directory
+# 6. Copy the src directory (and any other necessary project files)
 COPY src /app/src/
+# If there are other directories like 'tests' or other files needed for installation, copy them too.
+# For now, assuming only 'src' is needed for the 'main' dependencies.
 
-# 8. Install the project
+# 7. Install dependencies and the project itself
 RUN poetry install --only main --no-interaction --no-ansi
 
 # 9. Expose port 8081
