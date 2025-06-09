@@ -1,5 +1,5 @@
-# 1. Start from the python:3.9-slim base image
-FROM python:3.9-slim
+# 1. Start from the python:3.13-slim base image
+FROM python:3.13-slim
 
 # 2. Install Poetry
 RUN pip install poetry
@@ -10,14 +10,20 @@ WORKDIR /app
 # 4. Copy pyproject.toml and poetry.lock files
 COPY pyproject.toml poetry.lock /app/
 
-# 5. Install dependencies
-RUN poetry install --no-dev --no-interaction --no-ansi
+# 5. Configure Poetry to not create virtual environment (we're in a container)
+RUN poetry config virtualenvs.create false
 
-# 6. Copy the src directory
+# 6. Install only dependencies (not the project itself)
+RUN poetry install --only main --no-interaction --no-ansi --no-root
+
+# 7. Copy the src directory
 COPY src /app/src/
 
-# 7. Expose port 8081
+# 8. Install the project
+RUN poetry install --only main --no-interaction --no-ansi
+
+# 9. Expose port 8081
 EXPOSE 8081
 
-# 8. Set the default command
+# 10. Set the default command
 CMD ["poetry", "run", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8081"]
