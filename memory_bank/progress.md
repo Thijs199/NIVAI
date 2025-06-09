@@ -1,6 +1,6 @@
 # Progress Log
 
-This document tracks the implementation progress of the NIVAI project, providing a chronological record of key development milestones, decisions, and changes.
+This document tracks the implementation progress of the AIFAA project, providing a chronological record of key development milestones, decisions, and changes.
 
 ## Implementation History
 

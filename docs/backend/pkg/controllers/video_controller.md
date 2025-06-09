@@ -1,6 +1,6 @@
 # Video Controller Documentation
 
-> This document describes the HTTP controller that handles video-related endpoints in the NIVAI API, managing video uploads, retrieval, and deletion.
+> This document describes the HTTP controller that handles video-related endpoints in the AIFAA API, managing video uploads, retrieval, and deletion.
 
 ## Architecture
 

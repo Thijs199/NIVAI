@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-The NIVAI project is currently in the Phase 1 (Foundation) stage of development, focusing on implementing the core architecture and essential functionality for the football analytics platform.
+The AIFAA project is currently in the Phase 1 (Foundation) stage of development, focusing on implementing the core architecture and essential functionality for the football analytics platform.
 
 ### Priority Areas
 

@@ -15,13 +15,13 @@ import (
 )
 
 /**
- * Main entry point for the NIVAI API server.
+ * Main entry point for the AIFAA API server.
  * Initializes configuration, sets up routes, and starts the HTTP server
  * with graceful shutdown capabilities.
  */
 func main() {
 	// Initialize logger
-	logger := log.New(os.Stdout, "NIVAI API: ", log.LstdFlags)
+	logger := log.New(os.Stdout, "AIFAA API: ", log.LstdFlags)
 
 	// Load configuration
 	cfg, err := config.Load()

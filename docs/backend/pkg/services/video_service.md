@@ -1,6 +1,6 @@
 # Video Service Documentation
 
-> This document describes the video service that manages video uploads, processing, and streaming capabilities in the NIVAI application.
+> This document describes the video service that manages video uploads, processing, and streaming capabilities in the AIFAA application.
 
 ## Architecture
 

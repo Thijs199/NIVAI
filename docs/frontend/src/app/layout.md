@@ -1,6 +1,6 @@
 # Frontend Layout Documentation
 
-> This document describes the root layout component that provides the consistent application shell, including navigation, metadata, and footer for the NIVAI frontend.
+> This document describes the root layout component that provides the consistent application shell, including navigation, metadata, and footer for the AIFAA frontend.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ graph TB
 
         subgraph Header
             Nav[Navigation]
-            Logo[NIVAI Logo]
+            Logo[AIFAA Logo]
             Upload[Upload Button]
             Profile[Profile Button]
         end
@@ -104,10 +104,10 @@ graph LR
 
 ```typescript
 export const metadata: Metadata = {
-  title: "NIVAI - Football Analytics Platform",
+  title: "AIFAA - Football Analytics Platform",
   description:
     "Advanced football tracking data visualization and analysis platform",
-  applicationName: "NIVAI Football Analytics",
+  applicationName: "AIFAA Football Analytics",
 };
 ```
 
@@ -192,7 +192,7 @@ export default function HomePage() {
   return (
     // Layout automatically wraps the page content
     <div>
-      <h1>Welcome to NIVAI</h1>
+      <h1>Welcome to AIFAA</h1>
       <p>Your football analytics platform</p>
     </div>
   );

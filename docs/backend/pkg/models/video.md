@@ -1,6 +1,6 @@
 # Video Model Documentation
 
-> This document describes the video model that represents video files and their metadata in the NIVAI system, including the repository pattern implementation for data access.
+> This document describes the video model that represents video files and their metadata in the AIFAA system, including the repository pattern implementation for data access.
 
 ## Architecture
 

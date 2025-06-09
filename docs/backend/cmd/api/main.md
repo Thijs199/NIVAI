@@ -1,10 +1,10 @@
 # Backend API Main Entry Point Documentation
 
-> This document describes the main entry point for the NIVAI API server, which handles server initialization, configuration, and graceful shutdown.
+> This document describes the main entry point for the AIFAA API server, which handles server initialization, configuration, and graceful shutdown.
 
 ## Overview
 
-The main entry point (`main.go`) serves as the bootstrap component for the NIVAI API server, implementing core server initialization logic and graceful shutdown capabilities.
+The main entry point (`main.go`) serves as the bootstrap component for the AIFAA API server, implementing core server initialization logic and graceful shutdown capabilities.
 
 ## Architecture
 

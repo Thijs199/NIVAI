@@ -38,7 +38,7 @@ sequenceDiagram
 {
   "status": "ok",
   "timestamp": "2024-01-20T15:04:05Z",
-  "service": "NIVAI API"
+  "service": "AIFAA API"
 }
 ```
 
@@ -75,7 +75,7 @@ Content-Type: application/json
 {
     "status": "ok",
     "timestamp": "2024-01-20T15:04:05Z",
-    "service": "NIVAI API"
+    "service": "AIFAA API"
 }
 ```
 

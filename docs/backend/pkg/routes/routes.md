@@ -1,6 +1,6 @@
 # Routes Documentation
 
-> This document describes the routing system that manages API endpoints, middleware application, and request handling in the NIVAI API.
+> This document describes the routing system that manages API endpoints, middleware application, and request handling in the AIFAA API.
 
 ## Architecture
 

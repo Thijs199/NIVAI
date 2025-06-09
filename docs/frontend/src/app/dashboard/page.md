@@ -1,6 +1,6 @@
 # Dashboard Page Documentation
 
-> This document describes the main analytics dashboard that serves as the central hub for football performance insights and match analysis in the NIVAI platform.
+> This document describes the main analytics dashboard that serves as the central hub for football performance insights and match analysis in the AIFAA platform.
 
 ## Architecture
 

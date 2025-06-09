@@ -12,10 +12,10 @@ const inter = Inter({ subsets: ["latin"] });
  * Provides SEO information and browser configuration
  */
 export const metadata: Metadata = {
-  title: "NIVAI - Football Analytics Platform",
+  title: "AIFAA - Football Analytics Platform",
   description:
     "Advanced football tracking data visualization and analysis platform",
-  applicationName: "NIVAI Football Analytics",
+  applicationName: "AIFAA Football Analytics",
 };
 
 /**
@@ -42,7 +42,7 @@ export default function RootLayout({
                 <div className="flex">
                   <div className="flex-shrink-0 flex items-center">
                     <Link href="/" className="text-2xl font-bold text-blue-800">
-                      NIVAI
+                      AIFAA
                     </Link>
                   </div>
                   <nav className="ml-10 flex items-center space-x-4">
@@ -119,7 +119,7 @@ export default function RootLayout({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">
-                    NIVAI Football Analytics
+                    AIFAA Football Analytics
                   </h3>
                   <p className="text-gray-300 text-sm">
                     Advanced football tracking data visualization and analysis
@@ -178,7 +178,7 @@ export default function RootLayout({
                 </div>
               </div>
               <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-                &copy; {new Date().getFullYear()} NIVAI. All rights reserved.
+                &copy; {new Date().getFullYear()} AIFAA. All rights reserved.
               </div>
             </div>
           </footer>

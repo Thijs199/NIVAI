@@ -320,6 +320,8 @@ export default function MatchDashboardPage() {
                 {selectedPlayerData.num_accelerations !== undefined && <p><strong>Accelerations:</strong> {selectedPlayerData.num_accelerations}</p>}
                 {selectedPlayerData.num_decelerations !== undefined && <p><strong>Decelerations:</strong> {selectedPlayerData.num_decelerations}</p>}
                 {selectedPlayerData.max_speed_kmh !== undefined && <p><strong>Max Speed:</strong> {selectedPlayerData.max_speed_kmh.toFixed(2)} km/h</p>}
+                {selectedPlayerData.avg_speed_kmh !== undefined && <p><strong>Average Speed:</strong> {selectedPlayerData.avg_speed_kmh.toFixed(2)} km/h</p>}
+                <p className="text-xs italic text-gray-500 mt-4">Note: Detailed pass statistics and EPV performance data are not yet available.</p>
             </div>
             <div className="md:col-span-2">
                 <h3 className="text-xl font-medium mb-2 text-slate-600">Player Speed Over Time</h3>

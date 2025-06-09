@@ -1,6 +1,6 @@
 # WebSocket Controller Documentation
 
-> This document describes the WebSocket controller that enables real-time bidirectional communication between clients and the NIVAI API using a hub-based publish/subscribe pattern.
+> This document describes the WebSocket controller that enables real-time bidirectional communication between clients and the AIFAA API using a hub-based publish/subscribe pattern.
 
 ## Architecture
 
