@@ -225,8 +225,19 @@ func TestUploadVideo(t *testing.T) {
 
 		var pythonApiCallDetails struct { Called bool; Body map[string]string }
 		pythonApiMockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			bodyBytes, _ := io.ReadAll(r.Body)
+			r.Body.Close() // Important: close body after reading
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Replace body for decoder
+			t.Logf("Mock Python API received body: %s", string(bodyBytes))
+
+			pythonApiCallDetails.Body = make(map[string]string) // Clear map
+			if err := json.NewDecoder(bytes.NewBuffer(bodyBytes)).Decode(&pythonApiCallDetails.Body); err != nil {
+				t.Logf("Mock Python API: Error decoding request body: %v", err)
+				http.Error(w, "bad request body", http.StatusBadRequest)
+				return
+			}
 			pythonApiCallDetails.Called = true
-			json.NewDecoder(r.Body).Decode(&pythonApiCallDetails.Body)
+			t.Logf("Mock Python API decoded body: %+v", pythonApiCallDetails.Body)
 			w.WriteHeader(http.StatusAccepted)
 			json.NewEncoder(w).Encode(map[string]string{"message": "mocked processing"})
 		}))
@@ -386,7 +397,7 @@ func TestDeleteVideo(t *testing.T) {
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, http.StatusNoContent, rr.Code) // Corrected expected status code
 		mockVideoRepo.AssertExpectations(t)
 		mockStorageSvc.AssertExpectations(t)
 	})

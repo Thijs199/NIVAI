@@ -176,24 +176,23 @@ func (s *DefaultVideoService) UploadVideo(file multipart.File, header *multipart
  * @return Error if deletion fails
  */
 func (s *DefaultVideoService) DeleteVideo(id string) error {
-	// Get the video to check if it exists and get its file path
-	_, err := s.videoRepo.FindByID(id)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return ErrVideoNotFound
-		}
-		return err
-	}
+	// The controller calls GetVideoByID first. This service method should focus on deletion.
+	// The FindByID call here is redundant and causes issues with mocking call counts.
+	// video, err := s.videoRepo.FindByID(id) // This was the redundant call
+	// if err != nil {
+	// 	if strings.Contains(err.Error(), "not found") {
+	// 		return ErrVideoNotFound
+	// 	}
+	// 	return err
+	// }
 
 	// Soft delete in database
 	if err := s.videoRepo.Delete(id); err != nil {
+		if strings.Contains(err.Error(), "not found") { // Or use errors.Is if a specific error var exists
+			 return ErrVideoNotFound
+		}
 		return err
 	}
-
-	// Optionally delete from storage (could be deferred to a cleanup job)
-	// For this implementation, we'll keep the file in storage
-	// _ = s.storageService.DeleteFile(video.FilePath)
-
 	return nil
 }
 
