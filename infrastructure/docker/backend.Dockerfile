@@ -12,6 +12,7 @@ COPY backend/go.mod /app/
 # Copy go.sum if it exists (it will be created by go mod download if missing)
 COPY backend/go.sum /app/
 RUN go mod download
+RUN go mod tidy
 
 # Copy source code
 COPY backend/ /app/
