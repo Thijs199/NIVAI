@@ -5,11 +5,11 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json /app/
 RUN npm ci
 
 # Copy the rest of the application code
-COPY frontend/ ./
+COPY frontend/ /app/
 
 # Build the Next.js application
 RUN npm run build

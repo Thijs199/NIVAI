@@ -28,6 +28,7 @@ type VideoService interface {
 	DeleteVideo(id string) error
 	GetVideoStreamURL(id string) (string, error)
 	ProcessVideo(id string) error
+	CreateVideoEntry(metadata *models.Video) (*models.Video, error)
 }
 
 /**
@@ -295,4 +296,19 @@ func generateStoragePath(metadata *models.Video) string {
 	}
 
 	return filepath.Join("videos", "uploads", datePrefix, fileName)
+}
+
+func (s *DefaultVideoService) CreateVideoEntry(metadata *models.Video) (*models.Video, error) {
+	if metadata.ID == "" {
+		// Or generate UUID here if not already set by controller
+		return nil, errors.New("metadata ID is required")
+	}
+	metadata.UpdatedAt = time.Now()
+	// CreatedAt should already be set by the controller
+	// StorageProvider might also be set by controller after uploading main video file
+
+	if err := s.videoRepo.Create(metadata); err != nil {
+		return nil, err
+	}
+	return metadata, nil
 }

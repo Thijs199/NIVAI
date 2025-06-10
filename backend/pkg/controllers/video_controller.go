@@ -48,6 +48,7 @@ func init() {
  * Handles CRUD operations and specialized video-related endpoints.
  */
 type VideoController struct {
+	videoRepo      models.VideoRepository
 	videoService   services.VideoService
 	storageService services.StorageService
 }
@@ -55,14 +56,16 @@ type VideoController struct {
 /**
  * NewVideoController creates a new controller for video-related endpoints.
  *
+ * @param videoRepo The repository for video data operations
  * @param storageService The service for file storage operations
  * @return A new video controller instance
  */
-func NewVideoController(storageService services.StorageService) *VideoController {
-	// Create VideoService with the storage service
-	videoService := services.NewVideoService(storageService)
+func NewVideoController(videoRepo models.VideoRepository, storageService services.StorageService) *VideoController {
+	// Create VideoService with the video repository and storage service
+	videoService := services.NewVideoService(videoRepo, storageService)
 
 	return &VideoController{
+		videoRepo:      videoRepo,
 		videoService:   videoService,
 		storageService: storageService,
 	}
@@ -96,19 +99,11 @@ func (c *VideoController) saveUploadedFile(
 
 	destPath := filepath.Join(storageDir, storageFilename)
 
-	writer, err := c.storageService.Create(destPath)
+	uploadInfo, err := c.storageService.UploadFile(file, destPath)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to create destination file for %s (%s): %w", fileTypeIdentifier, destPath, err)
+		return "", 0, fmt.Errorf("failed to upload %s file to %s: %w", fileTypeIdentifier, destPath, err)
 	}
-	defer writer.Close()
-
-	size, err := io.Copy(writer, file)
-	if err != nil {
-		// Attempt to clean up partially written file
-		c.storageService.Delete(destPath)
-		return "", 0, fmt.Errorf("failed to save %s file (%s): %w", fileTypeIdentifier, destPath, err)
-	}
-	return destPath, size, nil
+	return uploadInfo.Path, uploadInfo.Size, nil
 }
 
 /**
@@ -180,11 +175,6 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	videoID := uuid.New().String()
 	storagePath := filepath.Join("videos", videoID[0:2], videoID[2:4], videoID)
 
-	if err := c.storageService.CreateDirectory(storagePath); err != nil {
-		http.Error(w, "Failed to prepare storage directory: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	var videoDestPath string
 	var videoSize int64
 	var errSave error
@@ -200,7 +190,7 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	trackingDestPath, _, errSave := c.saveUploadedFile(trackingFile, trackingHeader, storagePath, videoID, "tracking")
 	if errSave != nil {
 		// Attempt to cleanup video file if tracking save fails
-		if videoDestPath != "" { c.storageService.Delete(videoDestPath) }
+		if videoDestPath != "" { c.storageService.DeleteFile(videoDestPath) }
 		http.Error(w, errSave.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -208,8 +198,8 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	eventDestPath, _, errSave := c.saveUploadedFile(eventFile, eventHeader, storagePath, videoID, "events")
 	if errSave != nil {
 		// Attempt to cleanup video and tracking files if event save fails
-		if videoDestPath != "" { c.storageService.Delete(videoDestPath) }
-		c.storageService.Delete(trackingDestPath) // trackingDestPath would be valid here
+		if videoDestPath != "" { c.storageService.DeleteFile(videoDestPath) }
+		c.storageService.DeleteFile(trackingDestPath) // trackingDestPath would be valid here
 		http.Error(w, errSave.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -223,7 +213,7 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		// UploadedAt: time.Now(), // This field was in the original, but not in the model from read_files
 		CreatedAt:        time.Now(), // Assuming CreatedAt is the upload time
 		FilePath:         videoDestPath,
-		TrackingFilePath: trackingDestPath,
+		TrackingPath:     trackingDestPath,
 		EventFilePath:    eventDestPath,
 		// Size: videoSize, // If Video model had FileSize for main video
 		// ContentType: videoHeader.Header.Get("Content-Type"), // If model had ContentType
@@ -234,6 +224,9 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		videoMetadata.Size = videoSize // Size of the video file itself
 	}
 
+	if videoDestPath != "" {
+		videoMetadata.StorageProvider = "default" // Placeholder - this needs a proper source
+	}
 
 	// Get match metadata if provided
 	if matchID := r.FormValue("match_id"); matchID != "" {
@@ -242,7 +235,17 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		videoMetadata.AwayTeam = r.FormValue("away_team")
 		videoMetadata.Competition = r.FormValue("competition")
 		videoMetadata.Season = r.FormValue("season")
-		// MatchDate might need parsing from form value if provided
+
+		matchDateStr := r.FormValue("match_date")
+		if matchDateStr != "" {
+			parsedDate, err := time.Parse("2006-01-02", matchDateStr)
+			if err == nil {
+				videoMetadata.MatchDate = parsedDate
+			} else {
+				log.Printf("Warning: Could not parse match_date '%s': %v", matchDateStr, err)
+				// Optionally, you could set an error response here if match_date is critical and invalid
+			}
+		}
 	}
 
 	// Save the video metadata (which now includes paths to tracking and event files)
@@ -253,12 +256,19 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	// The existing Video model and repository are more complex than what SaveVideoMetadata might imply.
 	// Let's assume there's a method like CreateVideo in VideoService that handles this.
 	// If VideoService is tightly coupled to a DB via a repository, that's where it should go.
-	// For now, we'll log that metadata would be saved.
-	log.Printf("Video metadata prepared for ID %s: %+v", videoID, videoMetadata)
-	// In a real scenario, you would save `videoMetadata` to your database here.
-	// e.g., err := c.videoRepo.Create(videoMetadata) if controller had repo access
-	// or err := c.videoService.CreateVideo(videoMetadata)
-	// For this subtask, we focus on the Python API call.
+
+	savedMatchData, err := c.videoService.CreateVideoEntry(videoMetadata)
+	if err != nil {
+		log.Printf("Error saving video/match metadata for ID %s: %v", videoID, err)
+		// Attempt to clean up uploaded files if metadata saving fails
+		if videoDestPath != "" { c.storageService.DeleteFile(videoDestPath) }
+		if trackingDestPath != "" { c.storageService.DeleteFile(trackingDestPath) }
+		if eventDestPath != "" { c.storageService.DeleteFile(eventDestPath) }
+		http.Error(w, "Failed to save video/match metadata: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Video/match metadata saved for ID %s: %+v", videoID, savedMatchData)
+	// videoID from uuid.New().String() should match savedMatchData.ID if CreateVideoEntry uses the passed ID.
 
 	// Trigger Python API /process-match
 	// CRITICAL ASSUMPTION: trackingDestPath and eventDestPath must be accessible by the Python API
@@ -315,7 +325,7 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		"message":            "Upload received, processing initiated.",
 		"video_id":           videoID,
 		"video_file_path":    videoDestPath,    // if video was uploaded
-		"tracking_file_path": trackingDestPath, // always present based on current logic
+		"tracking_path":      trackingDestPath, // always present based on current logic
 		"event_file_path":    eventDestPath,    // always present
 	}); err != nil {
 		log.Printf("Error encoding UploadVideo final response for video %s: %v", videoID, err)
@@ -420,17 +430,17 @@ func (c *VideoController) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the actual file first (video, tracking, events)
 	if video.FilePath != "" {
-		if err := c.storageService.Delete(video.FilePath); err != nil && !os.IsNotExist(err) {
+		if err := c.storageService.DeleteFile(video.FilePath); err != nil && !os.IsNotExist(err) {
 			log.Printf("Warning: Failed to delete video file %s: %s", video.FilePath, err.Error())
 		}
 	}
-	if video.TrackingFilePath != "" {
-		if err := c.storageService.Delete(video.TrackingFilePath); err != nil && !os.IsNotExist(err) {
-			log.Printf("Warning: Failed to delete tracking file %s: %s", video.TrackingFilePath, err.Error())
+	if video.TrackingPath != "" {
+		if err := c.storageService.DeleteFile(video.TrackingPath); err != nil && !os.IsNotExist(err) {
+			log.Printf("Warning: Failed to delete tracking file %s: %s", video.TrackingPath, err.Error())
 		}
 	}
 	if video.EventFilePath != "" {
-		if err := c.storageService.Delete(video.EventFilePath); err != nil && !os.IsNotExist(err) {
+		if err := c.storageService.DeleteFile(video.EventFilePath); err != nil && !os.IsNotExist(err) {
 			log.Printf("Warning: Failed to delete event file %s: %s", video.EventFilePath, err.Error())
 		}
 	}

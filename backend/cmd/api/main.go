@@ -6,10 +6,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"database/sql"
+	"fmt"
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"nivai/backend/pkg/config"
+	"nivai/backend/pkg/models"
 	"nivai/backend/pkg/routes"
 	"nivai/backend/pkg/services"
 )
@@ -63,8 +67,34 @@ func main() {
 
 	logger.Printf("Storage service initialized successfully")
 
+	// Initialize database connection
+	logger.Println("Initializing database connection...")
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Database.Postgres.Host,
+		cfg.Database.Postgres.Port,
+		cfg.Database.Postgres.User,
+		cfg.Database.Postgres.Password,
+		cfg.Database.Postgres.DBName,
+		cfg.Database.Postgres.SSLMode,
+	)
+
+	db, err := sql.Open("postgres", psqlInfo)
+	if err != nil {
+		logger.Fatalf("Failed to open database connection: %v", err)
+	}
+	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		logger.Fatalf("Failed to ping database: %v", err)
+	}
+	logger.Println("Database connection initialized successfully")
+
+	// Create video repository
+	videoRepo := models.NewPostgresVideoRepository(db)
+
 	// Create router and register routes
-	router := routes.SetupRoutes(cfg, storage)
+	router := routes.SetupRoutes(cfg, storage, videoRepo)
 
 	// Configure server
 	server := &http.Server{

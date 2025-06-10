@@ -35,7 +35,7 @@ type Video struct {
 	Season       string     `json:"season,omitempty"`
 
 	// Tracking data information
-	HasTrackingData bool       `json:"has_tracking_data"`
+	// HasTrackingData bool       `json:"has_tracking_data"` // Field removed, infer from TrackingPath
 	TrackingPath    string     `json:"tracking_path,omitempty"`
 	EventFilePath   string     `json:"event_file_path,omitempty"`
 }
@@ -94,10 +94,12 @@ func (r *PostgresVideoRepository) FindByID(id string) (*Video, error) {
 			   duration, resolution, format, size, processing_state,
 			   created_at, updated_at, deleted_at,
 			   match_id, match_date, home_team, away_team, competition, season,
-			   has_tracking_data, tracking_path
+			   tracking_path, event_file_path
 		FROM videos
 		WHERE id = $1 AND deleted_at IS NULL
 	`
+	// Note: event_file_path was missing from the original SELECT, added it for consistency.
+	// Assuming HasTrackingData was the last field before TrackingPath.
 
 	var video Video
 	err := r.db.QueryRow(query, id).Scan(
@@ -105,7 +107,7 @@ func (r *PostgresVideoRepository) FindByID(id string) (*Video, error) {
 		&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
 		&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 		&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
-		&video.HasTrackingData, &video.TrackingPath,
+		&video.TrackingPath, &video.EventFilePath,
 	)
 
 	if err != nil {
@@ -135,7 +137,7 @@ func (r *PostgresVideoRepository) FindAll(limit, offset int) ([]*Video, error) {
 			   duration, resolution, format, size, processing_state,
 			   created_at, updated_at, deleted_at,
 			   match_id, match_date, home_team, away_team, competition, season,
-			   has_tracking_data, tracking_path
+			   tracking_path, event_file_path
 		FROM videos
 		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -156,7 +158,7 @@ func (r *PostgresVideoRepository) FindAll(limit, offset int) ([]*Video, error) {
 			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
 			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
-			&video.HasTrackingData, &video.TrackingPath,
+			&video.TrackingPath, &video.EventFilePath,
 		)
 
 		if err != nil {
@@ -180,16 +182,17 @@ func (r *PostgresVideoRepository) Create(video *Video) error {
 				   duration, resolution, format, size, processing_state,
 				   created_at, updated_at,
 				   match_id, match_date, home_team, away_team, competition, season,
-				   has_tracking_data, tracking_path)
+				   tracking_path, event_file_path)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	`
+	// Assuming event_file_path is the 20th argument now.
 	
 	_, err := r.db.Exec(query,
 		video.ID, video.Title, video.Description, video.FilePath, video.StorageProvider,
 		video.Duration, video.Resolution, video.Format, video.Size, video.ProcessingState,
 		video.CreatedAt, video.UpdatedAt,
 		video.MatchID, video.MatchDate, video.HomeTeam, video.AwayTeam, video.Competition, video.Season,
-		video.HasTrackingData, video.TrackingPath,
+		video.TrackingPath, video.EventFilePath, // video.HasTrackingData removed
 	)
 	
 	return err
@@ -202,16 +205,17 @@ func (r *PostgresVideoRepository) Update(video *Video) error {
 		SET title = $2, description = $3, file_path = $4, storage_provider = $5,
 		    duration = $6, resolution = $7, format = $8, size = $9, processing_state = $10,
 		    updated_at = $11, match_id = $12, match_date = $13, home_team = $14, 
-		    away_team = $15, competition = $16, season = $17, has_tracking_data = $18, 
-		    tracking_path = $19
+		    away_team = $15, competition = $16, season = $17, tracking_path = $18,
+		    event_file_path = $19
 		WHERE id = $1 AND deleted_at IS NULL
 	`
+	// Assuming event_file_path is $19 now.
 	
 	result, err := r.db.Exec(query,
 		video.ID, video.Title, video.Description, video.FilePath, video.StorageProvider,
 		video.Duration, video.Resolution, video.Format, video.Size, video.ProcessingState,
 		time.Now(), video.MatchID, video.MatchDate, video.HomeTeam, video.AwayTeam,
-		video.Competition, video.Season, video.HasTrackingData, video.TrackingPath,
+		video.Competition, video.Season, video.TrackingPath, video.EventFilePath, // video.HasTrackingData removed
 	)
 	
 	if err != nil {
@@ -258,7 +262,7 @@ func (r *PostgresVideoRepository) FindByMatchID(matchID string) ([]*Video, error
 			   duration, resolution, format, size, processing_state,
 			   created_at, updated_at, deleted_at,
 			   match_id, match_date, home_team, away_team, competition, season,
-			   has_tracking_data, tracking_path
+			   tracking_path, event_file_path
 		FROM videos
 		WHERE match_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -278,7 +282,7 @@ func (r *PostgresVideoRepository) FindByMatchID(matchID string) ([]*Video, error
 			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
 			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
-			&video.HasTrackingData, &video.TrackingPath,
+			&video.TrackingPath, &video.EventFilePath,
 		)
 		
 		if err != nil {
@@ -302,7 +306,7 @@ func (r *PostgresVideoRepository) FindByTeam(teamName string, limit, offset int)
 			   duration, resolution, format, size, processing_state,
 			   created_at, updated_at, deleted_at,
 			   match_id, match_date, home_team, away_team, competition, season,
-			   has_tracking_data, tracking_path
+			   tracking_path, event_file_path
 		FROM videos
 		WHERE (home_team = $1 OR away_team = $1) AND deleted_at IS NULL
 		ORDER BY match_date DESC
@@ -323,7 +327,7 @@ func (r *PostgresVideoRepository) FindByTeam(teamName string, limit, offset int)
 			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
 			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
-			&video.HasTrackingData, &video.TrackingPath,
+			&video.TrackingPath, &video.EventFilePath,
 		)
 		
 		if err != nil {
@@ -347,7 +351,7 @@ func (r *PostgresVideoRepository) FindByDateRange(start, end time.Time, limit, o
 			   duration, resolution, format, size, processing_state,
 			   created_at, updated_at, deleted_at,
 			   match_id, match_date, home_team, away_team, competition, season,
-			   has_tracking_data, tracking_path
+			   tracking_path, event_file_path
 		FROM videos
 		WHERE match_date BETWEEN $1 AND $2 AND deleted_at IS NULL
 		ORDER BY match_date DESC
@@ -368,7 +372,7 @@ func (r *PostgresVideoRepository) FindByDateRange(start, end time.Time, limit, o
 			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
 			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
-			&video.HasTrackingData, &video.TrackingPath,
+			&video.TrackingPath, &video.EventFilePath,
 		)
 		
 		if err != nil {
@@ -392,7 +396,7 @@ func (r *PostgresVideoRepository) FindByProcessingState(state string, limit, off
 			   duration, resolution, format, size, processing_state,
 			   created_at, updated_at, deleted_at,
 			   match_id, match_date, home_team, away_team, competition, season,
-			   has_tracking_data, tracking_path
+			   tracking_path, event_file_path
 		FROM videos
 		WHERE processing_state = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -413,7 +417,7 @@ func (r *PostgresVideoRepository) FindByProcessingState(state string, limit, off
 			&video.Duration, &video.Resolution, &video.Format, &video.Size, &video.ProcessingState,
 			&video.CreatedAt, &video.UpdatedAt, &video.DeletedAt,
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
-			&video.HasTrackingData, &video.TrackingPath,
+			&video.TrackingPath, &video.EventFilePath,
 		)
 		
 		if err != nil {

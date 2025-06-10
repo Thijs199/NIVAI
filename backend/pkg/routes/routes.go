@@ -2,9 +2,11 @@ package routes
 
 import (
 	"net/http"
+	"net/http"
 	"nivai/backend/pkg/config"
 	"nivai/backend/pkg/controllers"
 	"nivai/backend/pkg/middleware"
+	"nivai/backend/pkg/models" // Added for VideoRepository
 	"nivai/backend/pkg/services"
 
 	"github.com/gorilla/mux"
@@ -16,9 +18,10 @@ import (
  *
  * @param cfg Configuration for the application
  * @param storage Storage service for file operations
+ * @param videoRepo Repository for video data operations
  * @return The configured router
  */
-func SetupRoutes(cfg *config.Config, storage services.StorageService) http.Handler {
+func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo models.VideoRepository) http.Handler {
 	// Initialize router
 	router := mux.NewRouter()
 
@@ -28,16 +31,9 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService) http.Handl
 	router.Use(middleware.RequestID)
 
 	// Create controller instances with dependencies
-	videoController := controllers.NewVideoController(storage)
+	videoController := controllers.NewVideoController(videoRepo, storage)
 	// VideoService is needed for MatchController.
-	// NewVideoService is not directly exported by services package in the provided context,
-	// but typically it would be. Assuming services.NewVideoService(storage) is how it's created.
-	// If VideoService is already part of videoController, we could pass videoController.videoService
-	// For now, let's assume we can create a new VideoService instance if needed.
-	// However, VideoController already has a videoService.
-	// Let's assume NewMatchController can take the VideoService from VideoController if it's made public,
-	// or we create a new one. For simplicity and if VideoService is lightweight to create:
-	videoServiceForMatch := services.NewVideoService(storage) // Assuming this constructor exists
+	videoServiceForMatch := services.NewVideoService(videoRepo, storage)
 	matchController := controllers.NewMatchController(videoServiceForMatch)
 	playerController := controllers.NewPlayerController()
 
