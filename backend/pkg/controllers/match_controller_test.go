@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"mime/multipart"
 	"strings"
 	"testing"
 	"time"
 
 	"nivai/backend/pkg/controllers" // Adjust if necessary
 	"nivai/backend/pkg/models"
-	"nivai/backend/pkg/services"   // For VideoService interface
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock" // For mocking services
@@ -56,6 +56,35 @@ func (m *MockVideoService) DeleteVideo(id string) error {
 func (m *MockVideoService) CreateVideo(video *models.Video) error {
     args := m.Called(video)
     return args.Error(0)
+}
+
+func (m *MockVideoService) CreateVideoEntry(video *models.Video) (*models.Video, error) {
+	args := m.Called(video)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Video), args.Error(1)
+}
+
+func (m *MockVideoService) GetVideoStreamURL(id string) (string, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return "", args.Error(1)
+	}
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockVideoService) ProcessVideo(id string) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockVideoService) UploadVideo(videoFile multipart.File, videoFileHeader *multipart.FileHeader, videoDetails *models.Video) (*models.Video, error) {
+	args := m.Called(videoFile, videoFileHeader, videoDetails)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Video), args.Error(1)
 }
 
 
@@ -269,29 +298,4 @@ func TestListMatches(t *testing.T) {
 //
 // One detail: `mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string"))` has hardcoded limit/offset.
 // This should match what `ListMatches` actually passes (which are current defaults).
-// This is fine as `ListMatches` itself uses these defaults currently.The `match_controller_test.go` file has been created.
-
-**Key aspects of this test file:**
-
-*   **Mock `VideoService`:**
-    *   A `MockVideoService` struct is defined using `testify/mock`.
-    *   It mocks all methods of the `services.VideoService` interface (`GetVideoByID`, `ListVideos`, `SaveVideoMetadata`, `DeleteVideo`, `CreateVideo`).
-*   **Mock Python API for Status (`mockPythonStatusApi`):**
-    *   A helper function creates an `httptest.Server` to mock the Python API's `/match/{id}/status` endpoint.
-    *   It's configurable to return different statuses for different `matchID`s.
-*   **`TestListMatches` Function:**
-    *   **Setup:** Instantiates `MatchController` with the `MockVideoService`.
-    *   **Successful Listing:**
-        *   Mocks `videoService.ListVideos` to return a sample list of videos.
-        *   Sets up the `mockPythonStatusApi` to return specific analytics statuses for these videos.
-        *   Uses `t.Setenv("PYTHON_API_URL", mockApi.URL)` to direct the controller's HTTP client to the mock server (with the same caveats about `init()` functions as in `analytics_controller_test.go`).
-        *   Calls the `ListMatches` handler.
-        *   Asserts `http.StatusOK` and verifies that the response JSON correctly combines video data with the fetched analytics statuses.
-        *   Uses `mockVideoSvc.AssertExpectations(t)` to ensure `ListVideos` was called as expected.
-    *   **VideoService Error:** Tests the case where `videoService.ListVideos` returns an error, asserting `http.StatusInternalServerError`.
-    *   **Empty List of Matches:** Tests the case where `videoService.ListVideos` returns an empty list, asserting `http.StatusOK` and an empty JSON array in the response.
-    *   **Python API Errors for Some Matches:** Tests the scenario where the Python API returns errors for some match statuses, ensuring the main request still succeeds but individual matches reflect an error status for analytics.
-*   **Concurrency:** The tests implicitly cover the concurrent fetching of statuses by `ListMatches` by checking the final aggregated result.
-*   **Testability Notes:** Comments in the generated code reiterate the challenges and assumptions related to testing controllers that use package-level variables set by `init()` and `t.Setenv`.
-
-Next, I will create `backend/pkg/controllers/video_controller_test.go`. This is the most complex one due to file uploads and multiple service interactions.
+// This is fine as `ListMatches` itself uses these defaults currently.

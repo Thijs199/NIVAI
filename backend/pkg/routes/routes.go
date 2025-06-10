@@ -2,7 +2,6 @@ package routes
 
 import (
 	"net/http"
-	"net/http"
 	"nivai/backend/pkg/config"
 	"nivai/backend/pkg/controllers"
 	"nivai/backend/pkg/middleware"
@@ -52,8 +51,8 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	// User endpoints - requires authentication
 	userRouter := apiRouter.PathPrefix("/users").Subrouter()
 	userRouter.Use(middleware.Authenticate)
-	userRouter.HandleFunc("", controllers.GetUsers).Methods("GET")
-	userRouter.HandleFunc("/{id}", controllers.GetUser).Methods("GET")
+	// userRouter.HandleFunc("", controllers.GetUsers).Methods("GET")
+	// userRouter.HandleFunc("/{id}", controllers.GetUser).Methods("GET")
 
 	// Video endpoints - requires authentication
 	videoRouter := apiRouter.PathPrefix("/videos").Subrouter()

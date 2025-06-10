@@ -8,17 +8,13 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"nivai/backend/pkg/controllers" // Adjust if necessary
-	"nivai/backend/pkg/models"
-	"nivai/backend/pkg/services"   // For service interfaces
+	"nivai/backend/pkg/services"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"   // For mocking services
@@ -54,6 +50,40 @@ func (m *MockStorageService) Open(path string) (io.ReadCloser, error) {
 func (m *MockStorageService) Delete(path string) error {
 	args := m.Called(path)
 	return args.Error(0)
+}
+
+func (m *MockStorageService) DeleteFile(path string) error {
+	args := m.Called(path)
+	return args.Error(0)
+}
+
+func (m *MockStorageService) GetFile(path string) (io.ReadCloser, error) {
+	args := m.Called(path)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(io.ReadCloser), args.Error(1)
+}
+
+func (m *MockStorageService) GetFileMetadata(path string) (map[string]string, error) {
+	args := m.Called(path)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]string), args.Error(1)
+}
+
+func (m *MockStorageService) GetStreamURL(path string) (string, error) {
+	args := m.Called(path)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockStorageService) UploadFile(file multipart.File, path string) (*services.FileUploadInfo, error) {
+	args := m.Called(file, path)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*services.FileUploadInfo), args.Error(1)
 }
 
 // MockWriteCloser is a helper for mocking io.WriteCloser for storage.Create
@@ -103,7 +133,6 @@ func TestUploadVideo(t *testing.T) {
 	// like SaveVideoMetadata might not be directly called if the UploadVideo focuses on file ops
 	// and then calls Python API. The current UploadVideo in controller calls SaveVideoMetadata.
 	// So, we need MockVideoService as well.
-	mockVideoSvc := new(MockVideoService)
 
 	// The VideoController's NewVideoController creates its own VideoService.
 	// To test VideoController with a mock VideoService, VideoController would need to accept VideoService as a param.
@@ -130,7 +159,7 @@ func TestUploadVideo(t *testing.T) {
 	// It doesn't interact with storage. So, we can't verify much about it via storage mock.
 	// We will primarily test file saving and Python API call.
 
-	videoController := controllers.NewVideoController(mockStorageSvc) // Original constructor
+	videoController := controllers.NewVideoController(nil, mockStorageSvc) // Original constructor
 
 	router := mux.NewRouter() // Needed if any part of the handler relies on mux features
 	router.HandleFunc("/api/v1/videos", videoController.UploadVideo).Methods("POST")
@@ -168,19 +197,22 @@ func TestUploadVideo(t *testing.T) {
 		//    We need to capture the generated videoID from the path argument.
 		var capturedVideoPath, capturedTrackingPath, capturedEventPath string
 
-		mockStorageSvc.On("Create", mock.MatchedBy(func(path string) bool { return strings.Contains(path, ".mp4") })).Run(func(args mock.Arguments) {
-			capturedVideoPath = args.String(0)
+		// Expect UploadFile for the video file
+		mockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(path string) bool { return strings.Contains(path, ".mp4") })).Run(func(args mock.Arguments) {
+			capturedVideoPath = args.String(1) // path is the second argument for UploadFile
 			pathParts := strings.Split(filepath.ToSlash(capturedVideoPath), "/")
-			videoID = pathParts[len(pathParts)-2] // Assuming path is videos/xx/yy/videoID/filename.mp4
-		}).Return(&MockWriteCloser{Writer: io.Discard, closeFunc: func() error { return nil }}, nil).Once()
+			videoID = pathParts[len(pathParts)-2]
+		}).Return(&services.FileUploadInfo{Path: "dummy/path/video.mp4", Size: 12345}, nil).Once() // Use a fixed path for return if capturedVideoPath is not yet set
 
-		mockStorageSvc.On("Create", mock.MatchedBy(func(path string) bool { return strings.HasSuffix(path, "_tracking.gzip") })).Run(func(args mock.Arguments) {
-			capturedTrackingPath = args.String(0)
-		}).Return(&MockWriteCloser{Writer: io.Discard, closeFunc: func() error { return nil }}, nil).Once()
+		// Expect UploadFile for the tracking file (controller uses saveUploadedFile -> UploadFile)
+		mockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(path string) bool { return strings.HasSuffix(path, "_tracking.gzip") })).Run(func(args mock.Arguments) {
+			capturedTrackingPath = args.String(1) // path is the second argument
+		}).Return(&services.FileUploadInfo{Path: "dummy/path/tracking.gzip", Size: 123}, nil).Once()
 
-		mockStorageSvc.On("Create", mock.MatchedBy(func(path string) bool { return strings.HasSuffix(path, "_events.gzip") })).Run(func(args mock.Arguments) {
-			capturedEventPath = args.String(0)
-		}).Return(&MockWriteCloser{Writer: io.Discard, closeFunc: func() error { return nil }}, nil).Once()
+		// Expect UploadFile for the event file (controller uses saveUploadedFile -> UploadFile)
+		mockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(path string) bool { return strings.HasSuffix(path, "_events.gzip") })).Run(func(args mock.Arguments) {
+			capturedEventPath = args.String(1) // path is the second argument
+		}).Return(&services.FileUploadInfo{Path: "dummy/path/events.gzip", Size: 123}, nil).Once()
 
 		// Mock Python API (will be called after files are "saved")
 		// This relies on videoID being captured correctly.
@@ -370,7 +402,7 @@ func TestUploadVideo(t *testing.T) {
 
 func TestGetVideo(t *testing.T) {
     mockStorageSvc := new(MockStorageService) // Not directly used by GetVideo if VideoService handles all
-    videoController := controllers.NewVideoController(mockStorageSvc)
+    videoController := controllers.NewVideoController(nil, mockStorageSvc)
     // To properly test GetVideo, VideoService needs to be mockable.
     // Assuming VideoController's videoService field could be replaced for testing, or NewVideoController took VideoService.
     // For now, this test will be limited as videoService is internal.
@@ -406,7 +438,7 @@ func TestGetVideo(t *testing.T) {
 
 func TestDeleteVideo(t *testing.T) {
     mockStorageSvc := new(MockStorageService)
-    videoController := controllers.NewVideoController(mockStorageSvc)
+    videoController := controllers.NewVideoController(nil, mockStorageSvc)
     router := mux.NewRouter()
     router.HandleFunc("/videos/{id}", videoController.DeleteVideo)
 
@@ -429,34 +461,4 @@ func TestDeleteVideo(t *testing.T) {
     // 1. VideoService.GetVideoByID to return an actual video object (needs mocking or data seeding).
     // 2. VideoService.DeleteVideo to be mockable or testable.
     // 3. StorageService.Delete mock to be verified.
-}The `video_controller_test.go` file has been created.
-
-**Key aspects of this test file:**
-
-*   **Mock Services:**
-    *   `MockStorageService`: Implements `services.StorageService` using `testify/mock` to simulate file operations (CreateDirectory, Create, Open, Delete).
-    *   `MockWriteCloser`: A helper to mock `io.WriteCloser` returned by `storageService.Create`.
-    *   **`VideoService` Mocking Challenge:** The tests highlight a key testability issue: `VideoController`'s `NewVideoController` constructor creates its own `VideoService` instance internally. This makes it difficult to directly inject a mock `VideoService` for methods like `GetVideo`, `ListVideos`, and `DeleteVideo` without refactoring `NewVideoController` or `VideoController` to accept a `VideoService` instance as a parameter.
-        *   For `TestUploadVideo`, this is less of an issue because `UploadVideo` primarily interacts with `StorageService` (which *is* mocked and injected) and then makes an external HTTP call. The interactions with the internal `videoService` (like `SaveVideoMetadata`) are currently minimal in the main code as `SaveVideoMetadata` itself is a placeholder.
-        *   For `TestGetVideo` and `TestDeleteVideo`, the tests currently reflect the behavior with the *real* (but placeholder) `VideoService`. This means they are more like integration tests for those parts. Comments in the test code explain these limitations and suggest improvements (dependency injection for `VideoService`).
-
-*   **Mock Python API for `/process-match` (`mockPythonProcessMatchApi`):**
-    *   Similar to other controllers, an `httptest.Server` mocks the Python API's `/process-match` endpoint.
-    *   The test for `UploadVideo` uses a generic version of this mock that captures call details because the `videoID` (part of the expected call to Python) is generated dynamically within the handler.
-
-*   **`TestUploadVideo`:**
-    *   **Multipart Form Simulation:** Creates a multipart form request body in memory, including form fields (like "title") and dummy file content for "video_file", "tracking_file", and "event_file".
-    *   **Mock Expectations:** Sets up expectations for `StorageService` methods (`CreateDirectory`, `Create`). It captures the dynamically generated `videoID` from the path arguments passed to `storageService.Create` to verify against the Python API call.
-    *   **Python API Call Verification:**
-        *   Uses `t.Setenv` for `PYTHON_API_URL` (with the same caveats about `init()` as other controller tests).
-        *   Asserts that the Python API was called and that the `match_id`, `tracking_data_path`, and `event_data_path` in the request body are correct.
-    *   **Response Assertion:** Checks for `http.StatusAccepted` and the expected JSON response structure.
-    *   **Error Cases:** Includes tests for missing required files (tracking/event), and failures in `storageService.CreateDirectory` or `storageService.Create` (including cleanup logic verification).
-
-*   **`TestGetVideo` and `TestDeleteVideo`:**
-    *   These tests are more limited due to the `VideoService` mocking challenge mentioned above. They primarily test the current placeholder behavior of `VideoService`.
-    *   `TestDeleteVideo` includes a `Maybe()` expectation for `storageService.Delete` as it might not be called if `GetVideoByID` fails first.
-
-*   **Testability Comments:** The generated code includes extensive comments discussing the testability aspects, particularly around the `VideoService` and the use of `t.Setenv`.
-
-This completes the creation of the test files for the Go controllers. The next step would be to ensure all necessary helper packages (like `testify`) are available in the Go environment and then run these tests.
+}
