@@ -11,27 +11,40 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var (
-	pythonApiBaseUrl string
-	netClient        *http.Client
-)
-
-func init() {
-	pythonApiBaseUrl = os.Getenv("PYTHON_API_URL")
-	if pythonApiBaseUrl == "" {
-		pythonApiBaseUrl = "http://localhost:8081" // Default for local development
-		log.Println("PYTHON_API_URL not set, using default:", pythonApiBaseUrl)
-	} else {
-		log.Println("PYTHON_API_URL:", pythonApiBaseUrl)
-	}
-	netClient = &http.Client{Timeout: time.Second * 10}
+// AnalyticsController handles requests for analytics data.
+type AnalyticsController struct {
+	PythonApiBaseUrl string
+	HttpClient       *http.Client
 }
 
-// Helper function to relay requests to the Python API
-func relayRequest(w http.ResponseWriter, r *http.Request, targetUrl string, handlerName string) {
+// NewAnalyticsController creates a new AnalyticsController.
+// If pythonApiBaseUrl is empty, it tries to get it from PYTHON_API_URL env var,
+// then defaults to "http://localhost:8081".
+// If client is nil, a default client with a 10-second timeout is used.
+func NewAnalyticsController(pythonApiBaseUrl string, client *http.Client) *AnalyticsController {
+	if pythonApiBaseUrl == "" {
+		envURL := os.Getenv("PYTHON_API_URL")
+		if envURL != "" {
+			pythonApiBaseUrl = envURL
+		} else {
+			pythonApiBaseUrl = "http://localhost:8081" // Default
+		}
+		log.Println("AnalyticsController: Using Python API URL:", pythonApiBaseUrl)
+	}
+	if client == nil {
+		client = &http.Client{Timeout: time.Second * 10}
+	}
+	return &AnalyticsController{
+		PythonApiBaseUrl: pythonApiBaseUrl,
+		HttpClient:       client,
+	}
+}
+
+// relayRequest is a helper method to relay requests to the Python API.
+func (ac *AnalyticsController) relayRequest(w http.ResponseWriter, r *http.Request, targetUrl string, handlerName string) {
 	log.Printf("[%s] Relaying request to: %s", handlerName, targetUrl)
 
-	resp, err := netClient.Get(targetUrl)
+	resp, err := ac.HttpClient.Get(targetUrl)
 	if err != nil {
 		log.Printf("[%s] Error making GET request to Python API (%s): %v", handlerName, targetUrl, err)
 		http.Error(w, fmt.Sprintf("Error connecting to analytics service: %v", err), http.StatusBadGateway)
@@ -53,13 +66,12 @@ func relayRequest(w http.ResponseWriter, r *http.Request, targetUrl string, hand
 	_, writeErr := w.Write(bodyBytes)
 	if writeErr != nil {
 		log.Printf("[%s] Error writing response to client: %v", handlerName, writeErr)
-		// Cannot send http.Error here as headers/body might have been partially written
 	}
 }
 
 // GetMatchAnalytics handles requests for match analytics.
 // Path: /analytics/match/{id}
-func GetMatchAnalytics(w http.ResponseWriter, r *http.Request) {
+func (ac *AnalyticsController) GetMatchAnalytics(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	matchID, ok := vars["id"]
 	if !ok {
@@ -68,13 +80,13 @@ func GetMatchAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetUrl := fmt.Sprintf("%s/match/%s/stats/summary", pythonApiBaseUrl, matchID)
-	relayRequest(w, r, targetUrl, "GetMatchAnalytics")
+	targetUrl := fmt.Sprintf("%s/match/%s/stats/summary", ac.PythonApiBaseUrl, matchID)
+	ac.relayRequest(w, r, targetUrl, "GetMatchAnalytics")
 }
 
 // GetPlayerAnalytics handles requests for player analytics.
 // Path: /analytics/player/{id}?match_id=<match_id_value>
-func GetPlayerAnalytics(w http.ResponseWriter, r *http.Request) {
+func (ac *AnalyticsController) GetPlayerAnalytics(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	playerID, ok := vars["id"]
 	if !ok {
@@ -90,13 +102,13 @@ func GetPlayerAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetUrl := fmt.Sprintf("%s/match/%s/player/%s/details", pythonApiBaseUrl, matchID, playerID)
-	relayRequest(w, r, targetUrl, "GetPlayerAnalytics")
+	targetUrl := fmt.Sprintf("%s/match/%s/player/%s/details", ac.PythonApiBaseUrl, matchID, playerID)
+	ac.relayRequest(w, r, targetUrl, "GetPlayerAnalytics")
 }
 
 // GetTeamAnalytics handles requests for team analytics.
 // Path: /analytics/team/{id}?match_id=<match_id_value>
-func GetTeamAnalytics(w http.ResponseWriter, r *http.Request) {
+func (ac *AnalyticsController) GetTeamAnalytics(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	teamID, ok := vars["id"]
 	if !ok {
@@ -112,6 +124,6 @@ func GetTeamAnalytics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetUrl := fmt.Sprintf("%s/match/%s/team/%s/summary-over-time", pythonApiBaseUrl, matchID, teamID)
-	relayRequest(w, r, targetUrl, "GetTeamAnalytics")
+	targetUrl := fmt.Sprintf("%s/match/%s/team/%s/summary-over-time", ac.PythonApiBaseUrl, matchID, teamID)
+	ac.relayRequest(w, r, targetUrl, "GetTeamAnalytics")
 }

@@ -115,9 +115,6 @@ func mockPythonStatusApi(t *testing.T, statusResponses map[string]controllers.Py
 
 
 func TestListMatches(t *testing.T) {
-	mockVideoSvc := new(MockVideoService)
-	matchController := controllers.NewMatchController(mockVideoSvc) // Inject mock service
-
 	// Default videos to be returned by the mock service
 	sampleVideos := []*models.Video{
 		{ID: "match1", Title: "Match 1", CreatedAt: time.Now().Add(-24 * time.Hour), HomeTeam: "Team A", AwayTeam: "Team B"},
@@ -126,6 +123,8 @@ func TestListMatches(t *testing.T) {
 	}
 
 	t.Run("Successful listing with various analytics statuses", func(t *testing.T) {
+		mockVideoSvc := new(MockVideoService) // Moved instantiation to the top of the sub-test
+
 		// Setup mock VideoService behavior
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(sampleVideos, nil).Once()
 
@@ -137,16 +136,16 @@ func TestListMatches(t *testing.T) {
 		}
 		mockApi := mockPythonStatusApi(t, statusResps)
 		defer mockApi.Close()
-		t.Setenv("PYTHON_API_URL", mockApi.URL)
-		// controllers.ReinitializeClientForMatchControllerTesting() // Hypothetical
+
+		// matchController now uses the locally defined mockVideoSvc
+		matchController := controllers.NewMatchController(mockVideoSvc, mockApi.URL, mockApi.Client())
+
+		// This mock expectation was duplicated, removing one.
+		// The one at the top of the sub-test is correct.
+		// mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(sampleVideos, nil).Once()
 
 		req := httptest.NewRequest("GET", "/api/v1/matches", nil)
 		rr := httptest.NewRecorder()
-
-		// Setup router if ListMatches uses mux.Vars or other mux features (not in this case)
-		// http.HandlerFunc(matchController.ListMatches).ServeHTTP(rr, req) is fine here
-		// However, if routes.go adds middleware via router, testing via router is more accurate.
-		// For now, direct handler call.
 		http.HandlerFunc(matchController.ListMatches).ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -175,6 +174,9 @@ func TestListMatches(t *testing.T) {
 	})
 
 	t.Run("VideoService returns an error", func(t *testing.T) {
+		mockVideoSvc := new(MockVideoService)
+        matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
+
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(nil, fmt.Errorf("database error")).Once()
 
 		req := httptest.NewRequest("GET", "/api/v1/matches", nil)
@@ -187,6 +189,9 @@ func TestListMatches(t *testing.T) {
 	})
 
 	t.Run("Empty list of matches", func(t *testing.T) {
+		mockVideoSvc := new(MockVideoService)
+        matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
+
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return([]*models.Video{}, nil).Once()
 
 		// No need to mock Python API if no videos are returned.
@@ -207,12 +212,14 @@ func TestListMatches(t *testing.T) {
             {ID: "ok_match", Title: "OK Match", CreatedAt: time.Now()},
             {ID: "err_match", Title: "Error Match", CreatedAt: time.Now()},
         }
-        mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(videosWithOneProblematic, nil).Once()
+        // Removed incorrectly scoped mockVideoSvc.On("ListVideos",...) call from here
 
         statusResps := map[string]controllers.PythonStatusResponse{
             "ok_match": {Status: "processed"},
             // "err_match" will cause an error in the mock server if not defined, or we can make mock return error
         }
+
+        mockVideoSvc := new(MockVideoService) // Ensure mockVideoSvc is defined in this sub-test's scope
 
         // Mock Python API to simulate an error for one match
         mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -226,8 +233,11 @@ func TestListMatches(t *testing.T) {
             json.NewEncoder(w).Encode(statusResp)
         }))
         defer mockApi.Close()
-        t.Setenv("PYTHON_API_URL", mockApi.URL)
-        // controllers.ReinitializeClientForMatchControllerTesting() // Hypothetical
+
+        matchController := controllers.NewMatchController(mockVideoSvc, mockApi.URL, mockApi.Client())
+
+        mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(videosWithOneProblematic, nil).Once()
+
 
         req := httptest.NewRequest("GET", "/api/v1/matches", nil)
         rr := httptest.NewRecorder()

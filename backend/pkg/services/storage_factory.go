@@ -6,6 +6,9 @@ import (
 	"os"
 )
 
+// OsStat is a function variable that defaults to os.Stat, allowing it to be mocked in tests.
+var OsStat = os.Stat
+
 /**
  * StorageType represents the type of storage service to use.
  */
@@ -84,7 +87,7 @@ func (f *StorageFactory) CreateDefaultStorage() (StorageService, error) {
 	// First, check if external data path is set for local file storage
 	if externalPath := os.Getenv("EXTERNAL_DATA_PATH"); externalPath != "" {
 		// Verify the path exists and is accessible
-		if _, err := os.Stat(externalPath); err == nil {
+		if _, err := OsStat(externalPath); err == nil { // Use OsStat here
 			return f.CreateStorage(LocalFileStorageType)
 		}
 	}
