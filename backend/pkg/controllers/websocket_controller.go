@@ -44,9 +44,6 @@ type Hub struct {
 	mu sync.Mutex
 }
 
-// Singleton hub instance
-var hub = NewHub()
-
 // WebSocket connection upgrader with configuration
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -173,7 +170,8 @@ func (c *Client) writePump() {
  * @param w The HTTP response writer
  * @param r The HTTP request
  */
-func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
+// WebSocketHandler becomes ServeHTTP, a method of Hub
+func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -185,11 +183,11 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		conn: conn,
 		send: make(chan []byte, 256),
-		hub:  hub,
+		hub:  h, // Use the hub instance 'h'
 	}
 
 	// Register the client
-	client.hub.register <- client
+	client.hub.register <- client // Register to the specific hub instance
 
 	// Start the client's read and write pumps in goroutines
 	go client.writePump()

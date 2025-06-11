@@ -385,7 +385,7 @@ func TestDeleteVideo(t *testing.T) {
 		videoID := "existingID"
 		mockVideo := &models.Video{ID: videoID, FilePath: "videos/some/path/video.mp4", TrackingPath: "videos/some/path/tracking.gzip", EventFilePath: "videos/some/path/events.gzip"}
 
-		mockVideoRepo.On("FindByID", videoID).Return(mockVideo, nil).Twice() // Expect FindByID to be called twice
+		mockVideoRepo.On("FindByID", videoID).Return(mockVideo, nil).Once() // Corrected to .Once()
 		mockVideoRepo.On("Delete", videoID).Return(nil).Once()
 
 		mockStorageSvc.On("DeleteFile", mockVideo.FilePath).Return(nil).Once()

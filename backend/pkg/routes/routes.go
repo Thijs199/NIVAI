@@ -82,7 +82,12 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	matchesRouter.HandleFunc("", matchController.ListMatches).Methods("GET")
 
 	// WebSocket endpoint for real-time updates
-	router.HandleFunc("/ws", controllers.WebSocketHandler)
+	wsHub := controllers.NewHub()
+	go wsHub.Run() // Start the hub's processing loop
+	// Use Handle since wsHub.ServeHTTP is an http.Handler method.
+	// Or if WebSocketHandler was kept as a function needing a hub: router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { controllers.WebSocketHandler(wsHub, w, r) })
+	router.Handle("/ws", wsHub).Methods("GET")
+
 
 	return router
 }

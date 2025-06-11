@@ -311,3 +311,8 @@ func (s *DefaultVideoService) CreateVideoEntry(metadata *models.Video) (*models.
 	}
 	return metadata, nil
 }
+
+// GenerateStoragePathForTesting provides access to the unexported generateStoragePath for testing purposes.
+func GenerateStoragePathForTesting(metadata *models.Video) string {
+	return generateStoragePath(metadata)
+}
