@@ -47,9 +47,13 @@ services:
       - "8081:8081"
     restart: unless-stopped
     volumes:
-      - shared_data:/data/shared
+      - shared_data:/data/shared # This volume is crucial for local storage mode
     environment:
       PYTHONUNBUFFERED: 1
+      STORAGE_TYPE: "local"  # Default to local for docker-compose shared volume setup
+      PYTHON_API_DATA_PATH: "/data/shared" # Corresponds to the volume mount
+      # AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING} # Uncomment and set in .env if using Azure
+      # AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME}    # Uncomment and set in .env if using Azure
 
   postgres-db:
     image: postgres:15-alpine

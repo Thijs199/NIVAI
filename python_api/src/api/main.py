@@ -2,12 +2,21 @@ import logging
 import uuid
 from pathlib import Path
 from typing import Any, Dict
+import os
+import tempfile
+from azure.storage.blob import BlobServiceClient
 
 import pandas as pd
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 
 # Data Loading Functions
 from ..data_loader import load_event_data, load_tracking_data
+
+# Define environment variable names
+STORAGE_TYPE_ENV = "STORAGE_TYPE"
+PYTHON_API_DATA_PATH_ENV = "PYTHON_API_DATA_PATH"
+AZURE_STORAGE_CONNECTION_STRING_ENV = "AZURE_STORAGE_CONNECTION_STRING"
+AZURE_STORAGE_CONTAINER_NAME_ENV = "AZURE_STORAGE_CONTAINER_NAME"
 # Stats Calculation Functions
 from ..stats_calculator import (  # Constants for thresholds can be imported if needed by API logic directly; For now, they are used within stats_calculator with defaults
     enrich_tracking_data, generate_all_player_summaries,
@@ -19,6 +28,25 @@ from .models import BasicResponse, ProcessMatchRequest, StatusResponse
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _download_blob_to_tempfile(blob_name: str, connection_string: str, container_name: str, logger_instance: logging.Logger) -> Path:
+    logger_instance.info(f"Attempting to download blob: {blob_name} from container: {container_name}")
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=Path(blob_name).suffix)
+        with open(temp_file.name, "wb") as download_file:
+            download_stream = blob_client.download_blob()
+            download_file.write(download_stream.readall())
+
+        logger_instance.info(f"Successfully downloaded {blob_name} to {temp_file.name}")
+        return Path(temp_file.name)
+    except Exception as e:
+        logger_instance.exception(f"Failed to download blob {blob_name}: {e}")
+        raise
+
 
 app = FastAPI(title="Football Analysis API")
 
@@ -47,16 +75,90 @@ async def _process_match_data_background(
     """
     Background task to load, process, and cache match data.
     """
+    temp_files_to_clean: list[Path] = []
     logger.info(
         f"[{match_id}] Starting background processing for tracking: {tracking_path}, event: {event_path}"
     )
     try:
+        storage_type = os.getenv(STORAGE_TYPE_ENV, "local").lower()
+        logger.info(f"[{match_id}] Storage type configured: {storage_type}")
+
+        # Convert input Path objects to string representations for blob names or relative paths
+        # These original string paths are what Go backend provides.
+        input_tracking_path_str = str(tracking_path)
+        input_event_path_str = str(event_path)
+
+        final_tracking_path: Path
+        final_event_path: Path
+
+        if storage_type == "azure":
+            connection_string = os.getenv(AZURE_STORAGE_CONNECTION_STRING_ENV)
+            container_name = os.getenv(AZURE_STORAGE_CONTAINER_NAME_ENV)
+            if not connection_string or not container_name:
+                logger.error(
+                    f"[{match_id}] Azure storage type configured, but connection string or container name is missing."
+                )
+                processed_match_data_cache[match_id] = {
+                    "status": "error",
+                    "message": "Azure configuration incomplete.",
+                }
+                return # Exit if config is bad
+
+            # This download block itself needs error handling
+            try:
+                logger.info(f"[{match_id}] Downloading tracking data from Azure: {input_tracking_path_str}")
+                # Pass the module/instance logger to the helper
+                temp_tracking_file = _download_blob_to_tempfile(input_tracking_path_str, connection_string, container_name, logger)
+                final_tracking_path = temp_tracking_file
+                temp_files_to_clean.append(temp_tracking_file)
+
+                logger.info(f"[{match_id}] Downloading event data from Azure: {input_event_path_str}")
+                temp_event_file = _download_blob_to_tempfile(input_event_path_str, connection_string, container_name, logger)
+                final_event_path = temp_event_file
+                temp_files_to_clean.append(temp_event_file)
+            except Exception as e: # Catch exceptions from _download_blob_to_tempfile
+                logger.error(f"[{match_id}] Failed to download one or more files from Azure: {e}")
+                processed_match_data_cache[match_id] = {
+                    "status": "error",
+                    "message": f"Azure file download failed: {e}",
+                }
+                # No return here, finally block will clean up any partially downloaded files.
+                raise # Re-raise to be caught by the outer try/except that sets main status
+
+        elif storage_type == "local":
+            python_api_data_path_str = os.getenv(PYTHON_API_DATA_PATH_ENV)
+            if not python_api_data_path_str:
+                logger.error(
+                    f"[{match_id}] Local storage type configured, but PYTHON_API_DATA_PATH is not set."
+                )
+                processed_match_data_cache[match_id] = {
+                    "status": "error",
+                    "message": "Local storage path configuration missing.",
+                }
+                return # Exit if config is bad
+
+            base_data_path = Path(python_api_data_path_str)
+            # tracking_path and event_path are Path objects representing relative paths.
+            final_tracking_path = base_data_path / tracking_path
+            final_event_path = base_data_path / event_path
+
+            logger.info(f"[{match_id}] Using local tracking data path: {final_tracking_path}")
+            logger.info(f"[{match_id}] Using local event data path: {final_event_path}")
+
+        else: # Invalid storage type
+            logger.error(f"[{match_id}] Invalid STORAGE_TYPE: {storage_type}")
+            processed_match_data_cache[match_id] = {
+                "status": "error",
+                "message": f"Invalid storage type: {storage_type}",
+            }
+            return # Exit if config is bad
+
         # Load data
         # Note: load_tracking_data/load_event_data are synchronous.
         # For very large files or remote storage, consider running them in a thread pool.
-        tracking_df = load_tracking_data(tracking_path)
+        tracking_df = load_tracking_data(final_tracking_path)
         event_df = load_event_data(
-            event_path
+            final_event_path
         )  # Currently not used extensively by stats_calculator
 
         if tracking_df.empty:
@@ -112,6 +214,15 @@ async def _process_match_data_background(
     except Exception as e:
         logger.exception(f"[{match_id}] Error during background processing: {e}")
         processed_match_data_cache[match_id] = {"status": "error", "message": str(e)}
+    finally:
+        logger.info(f"[{match_id}] Cleaning up temporary files: {temp_files_to_clean}")
+        for temp_file_path in temp_files_to_clean:
+            if temp_file_path.exists():
+                try:
+                    os.remove(temp_file_path)
+                    logger.info(f"[{match_id}] Removed temporary file: {temp_file_path}")
+                except OSError as ose: # More specific exception for os.remove
+                    logger.error(f"[{match_id}] Error removing temporary file {temp_file_path}: {ose}")
 
 
 # --- API Endpoints ---

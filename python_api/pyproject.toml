@@ -12,6 +12,7 @@ python = "^3.12"
 fastapi = "^0.104.1"
 uvicorn = {extras = ["standard"], version = "^0.23.2"}
 pyarrow = "^14.0.1" # Added for Parquet support
+azure-storage-blob = "^12.19.0"
 pandas = "^2.1.0"
 numpy = "^1.26.0"
 
