@@ -84,7 +84,6 @@ func (vc *VideoController) callPythonProcessMatchAPI(videoID, trackingPath, even
 	}
 }
 
-
 // Helper function to save a single uploaded file
 func (vc *VideoController) saveUploadedFile( // Renamed c to vc for consistency
 	file multipart.File,
@@ -101,11 +100,12 @@ func (vc *VideoController) saveUploadedFile( // Renamed c to vc for consistency
 	originalFilename := header.Filename
 	fileExt := filepath.Ext(originalFilename)
 	var storageFilename string
-	if fileTypeIdentifier == "tracking" {
+	switch fileTypeIdentifier {
+	case "tracking":
 		storageFilename = baseFilename + "_tracking.gzip"
-	} else if fileTypeIdentifier == "events" {
+	case "events":
 		storageFilename = baseFilename + "_events.gzip"
-	} else {
+	default:
 		storageFilename = baseFilename + fileExt
 	}
 
@@ -175,7 +175,6 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-
 	videoID := uuid.New().String()
 	storagePath := filepath.Join("videos", videoID[0:2], videoID[2:4], videoID)
 
@@ -197,7 +196,9 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	trackingDestPath, _, errSave := vc.saveUploadedFile(trackingFile, trackingHeader, storagePath, videoID, "tracking")
 	if errSave != nil {
 		// Attempt to cleanup video file if tracking save fails
-		if videoDestPath != "" { vc.storageService.DeleteFile(videoDestPath) }
+		if videoDestPath != "" {
+			vc.storageService.DeleteFile(videoDestPath)
+		}
 		http.Error(w, errSave.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -205,7 +206,9 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	eventDestPath, _, errSave := vc.saveUploadedFile(eventFile, eventHeader, storagePath, videoID, "events")
 	if errSave != nil {
 		// Attempt to cleanup video and tracking files if event save fails
-		if videoDestPath != "" { vc.storageService.DeleteFile(videoDestPath) }
+		if videoDestPath != "" {
+			vc.storageService.DeleteFile(videoDestPath)
+		}
 		vc.storageService.DeleteFile(trackingDestPath) // trackingDestPath would be valid here
 		http.Error(w, errSave.Error(), http.StatusInternalServerError)
 		return
@@ -213,15 +216,15 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Create video metadata object
 	videoMetadata := &models.Video{
-		ID:               videoID,
-		Title:            r.FormValue("title"),
-		Description:      r.FormValue("description"),
-		ProcessingState:  "pending_analytics", // New state? Or keep "pending"?
+		ID:              videoID,
+		Title:           r.FormValue("title"),
+		Description:     r.FormValue("description"),
+		ProcessingState: "pending_analytics", // New state? Or keep "pending"?
 		// UploadedAt: time.Now(), // This field was in the original, but not in the model from read_files
-		CreatedAt:        time.Now(), // Assuming CreatedAt is the upload time
-		FilePath:         videoDestPath,
-		TrackingPath:     trackingDestPath,
-		EventFilePath:    eventDestPath,
+		CreatedAt:     time.Now(), // Assuming CreatedAt is the upload time
+		FilePath:      videoDestPath,
+		TrackingPath:  trackingDestPath,
+		EventFilePath: eventDestPath,
 		// Size: videoSize, // If Video model had FileSize for main video
 		// ContentType: videoHeader.Header.Get("Content-Type"), // If model had ContentType
 		// Filename: videoHeader.Filename, // If model had Filename
@@ -268,9 +271,15 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error saving video/match metadata for ID %s: %v", videoID, err)
 		// Attempt to clean up uploaded files if metadata saving fails
-		if videoDestPath != "" { vc.storageService.DeleteFile(videoDestPath) }
-		if trackingDestPath != "" { vc.storageService.DeleteFile(trackingDestPath) }
-		if eventDestPath != "" { vc.storageService.DeleteFile(eventDestPath) }
+		if videoDestPath != "" {
+			vc.storageService.DeleteFile(videoDestPath)
+		}
+		if trackingDestPath != "" {
+			vc.storageService.DeleteFile(trackingDestPath)
+		}
+		if eventDestPath != "" {
+			vc.storageService.DeleteFile(eventDestPath)
+		}
 		http.Error(w, "Failed to save video/match metadata: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -287,10 +296,10 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	// For now, assume paths are directly usable or Python API knows where to find them based on config.
 
 	// Convert paths to absolute if they are not already, assuming storageService provides paths relative to some root
-    // that might not be the same for the Python API.
-    // This is a placeholder for actual path resolution logic needed for your deployment.
-    absTrackingPath := trackingDestPath // Placeholder: vc.storageService.GetAbsolutePath(trackingDestPath)
-    absEventPath := eventDestPath       // Placeholder: vc.storageService.GetAbsolutePath(eventDestPath)
+	// that might not be the same for the Python API.
+	// This is a placeholder for actual path resolution logic needed for your deployment.
+	absTrackingPath := trackingDestPath // Placeholder: vc.storageService.GetAbsolutePath(trackingDestPath)
+	absEventPath := eventDestPath       // Placeholder: vc.storageService.GetAbsolutePath(eventDestPath)
 
 	// Directly call the method; marshaling and error handling are inside callPythonProcessMatchAPI
 	vc.callPythonProcessMatchAPI(videoID, absTrackingPath, absEventPath)
@@ -301,11 +310,11 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted) // Accepted, as processing (including analytics) is happening.
 	if err := json.NewEncoder(w).Encode(map[string]string{
-		"message":            "Upload received, processing initiated.",
-		"video_id":           videoID,
-		"video_file_path":    videoDestPath,    // if video was uploaded
-		"tracking_path":      trackingDestPath, // always present based on current logic
-		"event_file_path":    eventDestPath,    // always present
+		"message":         "Upload received, processing initiated.",
+		"video_id":        videoID,
+		"video_file_path": videoDestPath,    // if video was uploaded
+		"tracking_path":   trackingDestPath, // always present based on current logic
+		"event_file_path": eventDestPath,    // always present
 	}); err != nil {
 		log.Printf("Error encoding UploadVideo final response for video %s: %v", videoID, err)
 	}
@@ -315,7 +324,6 @@ func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 // ... (rest of the file from the read_files output)
 // To save space, I'm omitting the rest of the functions that were not meant to be changed by this subtask.
 // The tool should append the previous content here.
-
 
 /**
  * GetVideo retrieves a single video by its ID.
@@ -379,7 +387,6 @@ func (vc *VideoController) ListVideos(w http.ResponseWriter, r *http.Request) { 
 	}
 }
 
-
 /**
  * DeleteVideo removes a video resource.
  * Handles the DELETE /api/v1/videos/{id} endpoint.
@@ -423,7 +430,6 @@ func (vc *VideoController) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Warning: Failed to delete event file %s: %s", video.EventFilePath, err.Error())
 		}
 	}
-
 
 	// Delete video metadata
 	if err := vc.videoService.DeleteVideo(id); err != nil { // Renamed c to vc

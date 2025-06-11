@@ -41,7 +41,6 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	playerController := controllers.NewPlayerController()
 	analyticsController := controllers.NewAnalyticsController("", nil) // Using new constructor
 
-
 	// API version prefix
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
 
@@ -87,7 +86,6 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	// Use Handle since wsHub.ServeHTTP is an http.Handler method.
 	// Or if WebSocketHandler was kept as a function needing a hub: router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { controllers.WebSocketHandler(wsHub, w, r) })
 	router.Handle("/ws", wsHub).Methods("GET")
-
 
 	return router
 }

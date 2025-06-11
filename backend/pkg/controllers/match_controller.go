@@ -49,7 +49,7 @@ func NewMatchController(vs services.VideoService, pythonApiBaseUrl string, clien
 // MatchListItem represents a single item in the list of matches.
 type MatchListItem struct {
 	ID              string    `json:"id"`
-	MatchName       string    `json:"match_name"` // This is video.Title
+	MatchName       string    `json:"match_name"`  // This is video.Title
 	UploadDate      time.Time `json:"upload_date"` // This is video.CreatedAt
 	AnalyticsStatus string    `json:"analytics_status"`
 	HomeTeam        string    `json:"home_team,omitempty"`

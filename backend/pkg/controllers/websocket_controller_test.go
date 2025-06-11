@@ -79,7 +79,6 @@ func TestWebSocketHandler(t *testing.T) {
 		// Give time for clients to register with the hub
 		time.Sleep(100 * time.Millisecond)
 
-
 		broadcastMessage := []byte("broadcast test")
 		err = client1.WriteMessage(websocket.TextMessage, broadcastMessage)
 		require.NoError(t, err, "Client 1 failed to write message")
@@ -115,9 +114,9 @@ func TestWebSocketHandler(t *testing.T) {
 		assert.Error(t, err, "Reading from a closed connection should produce an error")
 
 		isCloseError := websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) ||
-						websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) || // Added CloseNoStatusReceived
-						strings.Contains(err.Error(), "use of closed network connection") ||
-						strings.Contains(err.Error(), "connection reset by peer") // Common on some systems
+			websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) || // Added CloseNoStatusReceived
+			strings.Contains(err.Error(), "use of closed network connection") ||
+			strings.Contains(err.Error(), "connection reset by peer") // Common on some systems
 		assert.True(t, isCloseError, "Error should be a WebSocket close error or network closed error, got: %v", err)
 	})
 }

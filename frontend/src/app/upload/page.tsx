@@ -12,13 +12,14 @@ export default function UploadPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
 
-  const handleFileChange = (setter: (file: File | null) => void) => (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setter(event.target.files[0]);
-    } else {
-      setter(null);
-    }
-  };
+  const handleFileChange =
+    (setter: (file: File | null) => void) => (event: ChangeEvent<HTMLInputElement>) => {
+      if (event.target.files && event.target.files[0]) {
+        setter(event.target.files[0]);
+      } else {
+        setter(null);
+      }
+    };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -27,10 +28,10 @@ export default function UploadPage() {
     setMessageType(null);
 
     if (!title.trim()) {
-        setMessage('Match Name is required.');
-        setMessageType('error');
-        setIsLoading(false);
-        return;
+      setMessage('Match Name is required.');
+      setMessageType('error');
+      setIsLoading(false);
+      return;
     }
     if (!trackingFile) {
       setMessage('Tracking Data File is required.');
@@ -60,7 +61,8 @@ export default function UploadPage() {
     // formData.append("match_id", "client-generated-match-id"); // Go backend generates videoID which is used as match_id for processing
 
     try {
-      const response = await fetch('/api/v1/videos', { // Assuming Go backend is served on the same origin or proxied
+      const response = await fetch('/api/v1/videos', {
+        // Assuming Go backend is served on the same origin or proxied
         method: 'POST',
         body: formData,
       });
@@ -68,7 +70,9 @@ export default function UploadPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`Match uploaded successfully! Video ID: ${data.video_id}. Processing initiated.`);
+        setMessage(
+          `Match uploaded successfully! Video ID: ${data.video_id}. Processing initiated.`
+        );
         setMessageType('success');
         // Reset form
         setTitle('');
@@ -77,15 +81,16 @@ export default function UploadPage() {
         setEventFile(null);
         // Clear file input elements visually
         const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-        fileInputs.forEach(input => input.value = '');
-
+        fileInputs.forEach((input) => (input.value = ''));
       } else {
         setMessage(`Upload failed: ${data.error || data.message || response.statusText}`);
         setMessageType('error');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      setMessage(`An unexpected error occurred during upload: ${error instanceof Error ? error.message : String(error)}`);
+      setMessage(
+        `An unexpected error occurred during upload: ${error instanceof Error ? error.message : String(error)}`
+      );
       setMessageType('error');
     } finally {
       setIsLoading(false);
@@ -94,13 +99,14 @@ export default function UploadPage() {
 
   // Basic styling using Tailwind CSS classes (assuming Tailwind is configured)
   // If not, these will be unstyled but functional.
-  const inputClass = "mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200 disabled:shadow-none";
-  const labelClass = "block text-sm font-medium text-slate-700";
-  const buttonClass = "mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400";
-  const messageBoxBaseClass = "mt-4 p-3 rounded-md text-sm";
+  const inputClass =
+    'mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200 disabled:shadow-none';
+  const labelClass = 'block text-sm font-medium text-slate-700';
+  const buttonClass =
+    'mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400';
+  const messageBoxBaseClass = 'mt-4 p-3 rounded-md text-sm';
   const successBoxClass = `${messageBoxBaseClass} bg-green-100 text-green-700 border border-green-300`;
   const errorBoxClass = `${messageBoxBaseClass} bg-red-100 text-red-700 border border-red-300`;
-
 
   return (
     <div className="container mx-auto p-4 max-w-lg">
@@ -108,7 +114,9 @@ export default function UploadPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-white shadow-md rounded-lg p-6">
         <div>
-          <label htmlFor="title" className={labelClass}>Match Name:</label>
+          <label htmlFor="title" className={labelClass}>
+            Match Name:
+          </label>
           <input
             type="text"
             id="title"
@@ -122,7 +130,9 @@ export default function UploadPage() {
         </div>
 
         <div>
-          <label htmlFor="video_file" className={labelClass}>Video File (Optional):</label>
+          <label htmlFor="video_file" className={labelClass}>
+            Video File (Optional):
+          </label>
           <input
             type="file"
             id="video_file"
@@ -135,7 +145,9 @@ export default function UploadPage() {
         </div>
 
         <div>
-          <label htmlFor="tracking_file" className={labelClass}>Tracking Data (e.g., .gzip, .parquet):</label>
+          <label htmlFor="tracking_file" className={labelClass}>
+            Tracking Data (e.g., .gzip, .parquet):
+          </label>
           <input
             type="file"
             id="tracking_file"
@@ -149,7 +161,9 @@ export default function UploadPage() {
         </div>
 
         <div>
-          <label htmlFor="event_file" className={labelClass}>Event Data (e.g., .gzip, .parquet):</label>
+          <label htmlFor="event_file" className={labelClass}>
+            Event Data (e.g., .gzip, .parquet):
+          </label>
           <input
             type="file"
             id="event_file"
@@ -183,9 +197,7 @@ export default function UploadPage() {
       </form>
 
       {message && (
-        <div className={messageType === 'error' ? errorBoxClass : successBoxClass}>
-          {message}
-        </div>
+        <div className={messageType === 'error' ? errorBoxClass : successBoxClass}>{message}</div>
       )}
     </div>
   );

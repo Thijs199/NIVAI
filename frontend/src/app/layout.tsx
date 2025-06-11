@@ -1,21 +1,20 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import Link from "next/link";
-import { ReactNode } from "react";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import Link from 'next/link';
+import { ReactNode } from 'react';
 
 // Initialize Inter font with latin subset
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 /**
  * Metadata configuration for the application
  * Provides SEO information and browser configuration
  */
 export const metadata: Metadata = {
-  title: "AIFAA - Football Analytics Platform",
-  description:
-    "Advanced football tracking data visualization and analysis platform",
-  applicationName: "AIFAA Football Analytics",
+  title: 'AIFAA - Football Analytics Platform',
+  description: 'Advanced football tracking data visualization and analysis platform',
+  applicationName: 'AIFAA Football Analytics',
 };
 
 /**
@@ -118,38 +117,26 @@ export default function RootLayout({
             <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">
-                    AIFAA Football Analytics
-                  </h3>
+                  <h3 className="text-lg font-semibold mb-4">AIFAA Football Analytics</h3>
                   <p className="text-gray-300 text-sm">
-                    Advanced football tracking data visualization and analysis
-                    platform.
+                    Advanced football tracking data visualization and analysis platform.
                   </p>
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                   <ul className="space-y-2 text-sm">
                     <li>
-                      <Link
-                        href="/about"
-                        className="text-gray-300 hover:text-white"
-                      >
+                      <Link href="/about" className="text-gray-300 hover:text-white">
                         About Us
                       </Link>
                     </li>
                     <li>
-                      <Link
-                        href="/contact"
-                        className="text-gray-300 hover:text-white"
-                      >
+                      <Link href="/contact" className="text-gray-300 hover:text-white">
                         Contact
                       </Link>
                     </li>
                     <li>
-                      <Link
-                        href="/support"
-                        className="text-gray-300 hover:text-white"
-                      >
+                      <Link href="/support" className="text-gray-300 hover:text-white">
                         Support
                       </Link>
                     </li>
@@ -159,18 +146,12 @@ export default function RootLayout({
                   <h3 className="text-lg font-semibold mb-4">Legal</h3>
                   <ul className="space-y-2 text-sm">
                     <li>
-                      <Link
-                        href="/privacy"
-                        className="text-gray-300 hover:text-white"
-                      >
+                      <Link href="/privacy" className="text-gray-300 hover:text-white">
                         Privacy Policy
                       </Link>
                     </li>
                     <li>
-                      <Link
-                        href="/terms"
-                        className="text-gray-300 hover:text-white"
-                      >
+                      <Link href="/terms" className="text-gray-300 hover:text-white">
                         Terms of Service
                       </Link>
                     </li>

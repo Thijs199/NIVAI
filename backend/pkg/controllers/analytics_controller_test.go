@@ -105,7 +105,7 @@ func TestGetMatchAnalytics(t *testing.T) {
 		assert.Contains(t, responseBody, "Error connecting to analytics service")
 	})
 
-	t.Run("Missing match_id in path", func(t *testing.T){
+	t.Run("Missing match_id in path", func(t *testing.T) {
 		// This test primarily tests mux routing.
 		// We need an AnalyticsController instance to register its methods.
 		ac := controllers.NewAnalyticsController("", nil) // URL/client don't matter as it shouldn't be called
@@ -119,106 +119,105 @@ func TestGetMatchAnalytics(t *testing.T) {
 	})
 }
 
-
 // Similar tests for GetPlayerAnalytics and GetTeamAnalytics
 // Need to handle query parameters in these tests and in the mockPythonApi if necessary
 
 func TestGetPlayerAnalytics(t *testing.T) {
-    t.Run("Successful player data relay", func(t *testing.T) {
-        playerID := "player1"
-        matchID := "match1"
-        expectedPath := fmt.Sprintf("/match/%s/player/%s/details", matchID, playerID)
-        expectedResponse := map[string]interface{}{"data": "player_details", "player_id": playerID}
+	t.Run("Successful player data relay", func(t *testing.T) {
+		playerID := "player1"
+		matchID := "match1"
+		expectedPath := fmt.Sprintf("/match/%s/player/%s/details", matchID, playerID)
+		expectedResponse := map[string]interface{}{"data": "player_details", "player_id": playerID}
 
-        mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            assert.Equal(t, expectedPath, r.URL.Path)
-            // Removed: assert.Equal(t, matchID, r.URL.Query().Get("match_id"))
-            w.Header().Set("Content-Type", "application/json")
-            w.WriteHeader(http.StatusOK)
-            json.NewEncoder(w).Encode(expectedResponse)
-        }))
-        defer mockApi.Close()
+		mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, expectedPath, r.URL.Path)
+			// Removed: assert.Equal(t, matchID, r.URL.Query().Get("match_id"))
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(expectedResponse)
+		}))
+		defer mockApi.Close()
 
-        ac := controllers.NewAnalyticsController(mockApi.URL, mockApi.Client())
+		ac := controllers.NewAnalyticsController(mockApi.URL, mockApi.Client())
 		router := mux.NewRouter()
-	// The actual route is /api/v1/analytics/players/{id} but mux expects path variables in handler registration
-	router.HandleFunc("/analytics/players/{id}", ac.GetPlayerAnalytics).Methods("GET")
+		// The actual route is /api/v1/analytics/players/{id} but mux expects path variables in handler registration
+		router.HandleFunc("/analytics/players/{id}", ac.GetPlayerAnalytics).Methods("GET")
 
-        reqPath := fmt.Sprintf("/analytics/players/%s?match_id=%s", playerID, matchID)
-        req := httptest.NewRequest("GET", reqPath, nil)
-        rr := httptest.NewRecorder()
-        router.ServeHTTP(rr, req)
+		reqPath := fmt.Sprintf("/analytics/players/%s?match_id=%s", playerID, matchID)
+		req := httptest.NewRequest("GET", reqPath, nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusOK, rr.Code)
-        var actualResponse map[string]interface{}
-        err := json.NewDecoder(rr.Body).Decode(&actualResponse)
-        require.NoError(t, err)
-        assert.Equal(t, expectedResponse, actualResponse)
-    })
+		assert.Equal(t, http.StatusOK, rr.Code)
+		var actualResponse map[string]interface{}
+		err := json.NewDecoder(rr.Body).Decode(&actualResponse)
+		require.NoError(t, err)
+		assert.Equal(t, expectedResponse, actualResponse)
+	})
 
-    t.Run("Missing match_id query for player", func(t *testing.T) {
-        playerID := "player1"
-        // No mock API needed as it should fail before calling it.
-        ac := controllers.NewAnalyticsController("", nil) // URL/client don't matter
+	t.Run("Missing match_id query for player", func(t *testing.T) {
+		playerID := "player1"
+		// No mock API needed as it should fail before calling it.
+		ac := controllers.NewAnalyticsController("", nil) // URL/client don't matter
 		router := mux.NewRouter()
-	router.HandleFunc("/analytics/players/{id}", ac.GetPlayerAnalytics).Methods("GET")
+		router.HandleFunc("/analytics/players/{id}", ac.GetPlayerAnalytics).Methods("GET")
 
-        reqPath := fmt.Sprintf("/analytics/players/%s", playerID) // Missing match_id query
-        req := httptest.NewRequest("GET", reqPath, nil)
-        rr := httptest.NewRecorder()
-        router.ServeHTTP(rr, req)
+		reqPath := fmt.Sprintf("/analytics/players/%s", playerID) // Missing match_id query
+		req := httptest.NewRequest("GET", reqPath, nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusBadRequest, rr.Code)
-        assert.Contains(t, rr.Body.String(), "match_id query parameter is required")
-    })
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "match_id query parameter is required")
+	})
 }
 
 func TestGetTeamAnalytics(t *testing.T) {
-    t.Run("Successful team data relay", func(t *testing.T) {
-        teamID := "teamA"
-        matchID := "match1"
-        expectedPath := fmt.Sprintf("/match/%s/team/%s/summary-over-time", matchID, teamID)
-        expectedResponse := map[string]interface{}{"data": "team_summary_over_time", "team_id": teamID}
+	t.Run("Successful team data relay", func(t *testing.T) {
+		teamID := "teamA"
+		matchID := "match1"
+		expectedPath := fmt.Sprintf("/match/%s/team/%s/summary-over-time", matchID, teamID)
+		expectedResponse := map[string]interface{}{"data": "team_summary_over_time", "team_id": teamID}
 
-        mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            assert.Equal(t, expectedPath, r.URL.Path)
-            // Removed: assert.Equal(t, matchID, r.URL.Query().Get("match_id"))
-            w.Header().Set("Content-Type", "application/json")
-            w.WriteHeader(http.StatusOK)
-            json.NewEncoder(w).Encode(expectedResponse)
-        }))
-        defer mockApi.Close()
+		mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, expectedPath, r.URL.Path)
+			// Removed: assert.Equal(t, matchID, r.URL.Query().Get("match_id"))
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(expectedResponse)
+		}))
+		defer mockApi.Close()
 
-        ac := controllers.NewAnalyticsController(mockApi.URL, mockApi.Client())
+		ac := controllers.NewAnalyticsController(mockApi.URL, mockApi.Client())
 		router := mux.NewRouter()
-	router.HandleFunc("/analytics/teams/{id}", ac.GetTeamAnalytics).Methods("GET")
+		router.HandleFunc("/analytics/teams/{id}", ac.GetTeamAnalytics).Methods("GET")
 
-        reqPath := fmt.Sprintf("/analytics/teams/%s?match_id=%s", teamID, matchID)
-        req := httptest.NewRequest("GET", reqPath, nil)
-        rr := httptest.NewRecorder()
-        router.ServeHTTP(rr, req)
+		reqPath := fmt.Sprintf("/analytics/teams/%s?match_id=%s", teamID, matchID)
+		req := httptest.NewRequest("GET", reqPath, nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusOK, rr.Code)
-        var actualResponse map[string]interface{}
-        err := json.NewDecoder(rr.Body).Decode(&actualResponse)
-        require.NoError(t, err)
-        assert.Equal(t, expectedResponse, actualResponse)
-    })
+		assert.Equal(t, http.StatusOK, rr.Code)
+		var actualResponse map[string]interface{}
+		err := json.NewDecoder(rr.Body).Decode(&actualResponse)
+		require.NoError(t, err)
+		assert.Equal(t, expectedResponse, actualResponse)
+	})
 
-    t.Run("Missing match_id query for team", func(t *testing.T) {
-        teamID := "teamA"
-        ac := controllers.NewAnalyticsController("", nil) // URL/client don't matter
+	t.Run("Missing match_id query for team", func(t *testing.T) {
+		teamID := "teamA"
+		ac := controllers.NewAnalyticsController("", nil) // URL/client don't matter
 		router := mux.NewRouter()
-	router.HandleFunc("/analytics/teams/{id}", ac.GetTeamAnalytics).Methods("GET")
+		router.HandleFunc("/analytics/teams/{id}", ac.GetTeamAnalytics).Methods("GET")
 
-        reqPath := fmt.Sprintf("/analytics/teams/%s", teamID) // Missing match_id
-        req := httptest.NewRequest("GET", reqPath, nil)
-        rr := httptest.NewRecorder()
-        router.ServeHTTP(rr, req)
+		reqPath := fmt.Sprintf("/analytics/teams/%s", teamID) // Missing match_id
+		req := httptest.NewRequest("GET", reqPath, nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusBadRequest, rr.Code)
-        assert.Contains(t, rr.Body.String(), "match_id query parameter is required")
-    })
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "match_id query parameter is required")
+	})
 }
 
 // Note: The refactoring to AnalyticsController with constructor injection

@@ -39,7 +39,6 @@ func (fim *fileInfoMock) ModTime() time.Time { return fim.modTime }
 func (fim *fileInfoMock) IsDir() bool        { return fim.isDir }
 func (fim *fileInfoMock) Sys() interface{}   { return nil }
 
-
 func TestStorageFactory_CreateStorage(t *testing.T) {
 	factory := services.NewStorageFactory()
 
@@ -95,17 +94,17 @@ func TestStorageFactory_CreateStorage(t *testing.T) {
 		assert.Contains(t, err.Error(), "missing required Local Storage configuration")
 	})
 
-    t.Run("Local File Storage path is not a directory", func(t *testing.T) {
-        tempFile, err := os.CreateTemp("", "not_a_dir")
-        require.NoError(t, err)
-        defer os.Remove(tempFile.Name())
-        tempFile.Close()
+	t.Run("Local File Storage path is not a directory", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "not_a_dir")
+		require.NoError(t, err)
+		defer os.Remove(tempFile.Name())
+		tempFile.Close()
 
-        t.Setenv("EXTERNAL_DATA_PATH", tempFile.Name())
-        _, err = factory.CreateStorage(services.LocalFileStorageType)
-        assert.Error(t, err)
-        assert.Contains(t, err.Error(), "base path must be a directory")
-    })
+		t.Setenv("EXTERNAL_DATA_PATH", tempFile.Name())
+		_, err = factory.CreateStorage(services.LocalFileStorageType)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "base path must be a directory")
+	})
 
 	t.Run("Unsupported storage type", func(t *testing.T) {
 		_, err := factory.CreateStorage(services.StorageType("unknown_type"))
@@ -116,10 +115,10 @@ func TestStorageFactory_CreateStorage(t *testing.T) {
 
 func TestStorageFactory_CreateDefaultStorage(t *testing.T) {
 	factory := services.NewStorageFactory()
-    originalOsStat := services.OsStat // Store original os.Stat
-    services.OsStat = patchedOsStat      // Patch os.Stat
-    defer func() { services.OsStat = originalOsStat }() // Restore original
-    // Re-enabled OsStat patching.
+	originalOsStat := services.OsStat                   // Store original os.Stat
+	services.OsStat = patchedOsStat                     // Patch os.Stat
+	defer func() { services.OsStat = originalOsStat }() // Restore original
+	// Re-enabled OsStat patching.
 
 	// Cleanup function to unset all relevant env vars
 	cleanupEnv := func() {
@@ -130,25 +129,23 @@ func TestStorageFactory_CreateDefaultStorage(t *testing.T) {
 	}
 	defer cleanupEnv()
 
-
 	t.Run("Local storage configured and path valid", func(t *testing.T) {
 		cleanupEnv()
 		tempDir, _ := os.MkdirTemp("", "default_local_valid")
 		defer os.RemoveAll(tempDir)
 		t.Setenv("EXTERNAL_DATA_PATH", tempDir)
 
-        mockOsStat = func(name string) (os.FileInfo, error) {
-            assert.Equal(t, tempDir, name)
-            return &fileInfoMock{name: filepath.Base(tempDir), isDir: true}, nil
-        }
-        defer func() { mockOsStat = nil }()
-
+		mockOsStat = func(name string) (os.FileInfo, error) {
+			assert.Equal(t, tempDir, name)
+			return &fileInfoMock{name: filepath.Base(tempDir), isDir: true}, nil
+		}
+		defer func() { mockOsStat = nil }()
 
 		storage, err := factory.CreateDefaultStorage()
 		require.NoError(t, err)
 		assert.NotNil(t, storage)
 		// Check if it's LocalFileStorage (indirectly, e.g. by trying to use a feature specific to it if possible, or by type name if exposed)
-        // For now, assert.NotNil and no error is the main check.
+		// For now, assert.NotNil and no error is the main check.
 	})
 
 	t.Run("Local storage configured but path invalid, fallback to Azure", func(t *testing.T) {
@@ -158,11 +155,11 @@ func TestStorageFactory_CreateDefaultStorage(t *testing.T) {
 		t.Setenv("AZURE_STORAGE_KEY", "dGVzdGtleV9tdXN0X2JlX2xvbmdlcl9hbmRfZW5jb2RlZF9jb3JyZWN0bHlhYmMxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=") // Longer fake base64
 		t.Setenv("AZURE_STORAGE_CONTAINER", "testcontainer_azure")
 
-        mockOsStat = func(name string) (os.FileInfo, error) {
-            assert.Equal(t, "/nonexistentpath_for_testing_stat_fail", name)
-            return nil, os.ErrNotExist // Simulate os.Stat failing
-        }
-        defer func() { mockOsStat = nil }()
+		mockOsStat = func(name string) (os.FileInfo, error) {
+			assert.Equal(t, "/nonexistentpath_for_testing_stat_fail", name)
+			return nil, os.ErrNotExist // Simulate os.Stat failing
+		}
+		defer func() { mockOsStat = nil }()
 
 		storage, err := factory.CreateDefaultStorage()
 		require.NoError(t, err)
@@ -175,13 +172,12 @@ func TestStorageFactory_CreateDefaultStorage(t *testing.T) {
 		t.Setenv("AZURE_STORAGE_ACCOUNT", "azure_only_account")
 		t.Setenv("AZURE_STORAGE_KEY", "dGVzdGtleV9tdXN0X2JlX2xvbmdlcl9hbmRfZW5jb2RlZF9jb3JyZWN0bHlhYmMxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=") // Longer fake base64
 		t.Setenv("AZURE_STORAGE_CONTAINER", "azure_only_container")
-        mockOsStat = func(name string) (os.FileInfo, error) {
-            // This shouldn't be called if EXTERNAL_DATA_PATH is not set
-            t.Fatalf("os.Stat should not be called when EXTERNAL_DATA_PATH is not set")
-            return nil, nil
-        }
-        defer func() { mockOsStat = nil }()
-
+		mockOsStat = func(name string) (os.FileInfo, error) {
+			// This shouldn't be called if EXTERNAL_DATA_PATH is not set
+			t.Fatalf("os.Stat should not be called when EXTERNAL_DATA_PATH is not set")
+			return nil, nil
+		}
+		defer func() { mockOsStat = nil }()
 
 		storage, err := factory.CreateDefaultStorage()
 		require.NoError(t, err)
@@ -198,10 +194,10 @@ func TestStorageFactory_CreateDefaultStorage(t *testing.T) {
 		t.Setenv("AZURE_STORAGE_KEY", "dGVzdGtleV9tdXN0X2JlX2xvbmdlcl9hbmRfZW5jb2RlZF9jb3JyZWN0bHlhYmMxMjM0NTY3ODkwYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=") // Longer fake base64
 		t.Setenv("AZURE_STORAGE_CONTAINER", "azure_preferred_container")
 
-        mockOsStat = func(name string) (os.FileInfo, error) {
-            return &fileInfoMock{name: filepath.Base(tempDir), isDir: true}, nil
-        }
-        defer func() { mockOsStat = nil }()
+		mockOsStat = func(name string) (os.FileInfo, error) {
+			return &fileInfoMock{name: filepath.Base(tempDir), isDir: true}, nil
+		}
+		defer func() { mockOsStat = nil }()
 
 		storage, err := factory.CreateDefaultStorage()
 		require.NoError(t, err)
@@ -211,11 +207,11 @@ func TestStorageFactory_CreateDefaultStorage(t *testing.T) {
 
 	t.Run("No storage configuration found", func(t *testing.T) {
 		cleanupEnv()
-        mockOsStat = func(name string) (os.FileInfo, error) {
-            t.Fatalf("os.Stat should not be called when EXTERNAL_DATA_PATH is not set")
-            return nil, nil
-        }
-        defer func() { mockOsStat = nil }()
+		mockOsStat = func(name string) (os.FileInfo, error) {
+			t.Fatalf("os.Stat should not be called when EXTERNAL_DATA_PATH is not set")
+			return nil, nil
+		}
+		defer func() { mockOsStat = nil }()
 
 		_, err := factory.CreateDefaultStorage()
 		assert.Error(t, err)

@@ -1,6 +1,7 @@
-import pandas as pd
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import pandas as pd
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -8,14 +9,27 @@ logger = logging.getLogger(__name__)
 
 # Define expected columns for empty DataFrames
 EXPECTED_TRACKING_COLS = [
-    'player_id', 'team_id', 'timestamp_ms', 'x', 'y',
-    'smooth_x_speed', 'smooth_y_speed'
+    "player_id",
+    "team_id",
+    "timestamp_ms",
+    "x",
+    "y",
+    "smooth_x_speed",
+    "smooth_y_speed",
 ]
 # Define expected columns for event data if known, otherwise empty or minimal
 EXPECTED_EVENT_COLS = [
-    'event_id', 'event_type', 'player_id', 'team_id', 'timestamp_ms',
-    'start_x', 'start_y', 'end_x', 'end_y' # Example columns
+    "event_id",
+    "event_type",
+    "player_id",
+    "team_id",
+    "timestamp_ms",
+    "start_x",
+    "start_y",
+    "end_x",
+    "end_y",  # Example columns
 ]
+
 
 def load_tracking_data(file_path: Path) -> pd.DataFrame:
     """
@@ -35,7 +49,7 @@ def load_tracking_data(file_path: Path) -> pd.DataFrame:
         df = pd.read_parquet(file_path)
         # Basic validation: check if essential columns exist
         # This is a light check; more comprehensive validation might be needed
-        if not all(col in df.columns for col in ['timestamp_ms', 'x', 'y']):
+        if not all(col in df.columns for col in ["timestamp_ms", "x", "y"]):
             logger.error(f"Essential columns missing in tracking data: {file_path}")
             return pd.DataFrame(columns=EXPECTED_TRACKING_COLS)
         logger.info(f"Successfully loaded tracking data from: {file_path}")
@@ -46,6 +60,7 @@ def load_tracking_data(file_path: Path) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error loading tracking data from {file_path}: {e}")
         return pd.DataFrame(columns=EXPECTED_TRACKING_COLS)
+
 
 def load_event_data(file_path: Path) -> pd.DataFrame:
     """
@@ -64,9 +79,11 @@ def load_event_data(file_path: Path) -> pd.DataFrame:
         logger.info(f"Loading event data from: {file_path}")
         df = pd.read_parquet(file_path)
         # Basic validation for event data
-        if not all(col in df.columns for col in ['event_id', 'event_type', 'timestamp_ms']):
-             logger.error(f"Essential columns missing in event data: {file_path}")
-             return pd.DataFrame(columns=EXPECTED_EVENT_COLS)
+        if not all(
+            col in df.columns for col in ["event_id", "event_type", "timestamp_ms"]
+        ):
+            logger.error(f"Essential columns missing in event data: {file_path}")
+            return pd.DataFrame(columns=EXPECTED_EVENT_COLS)
         logger.info(f"Successfully loaded event data from: {file_path}")
         return df
     except FileNotFoundError:
@@ -76,17 +93,20 @@ def load_event_data(file_path: Path) -> pd.DataFrame:
         logger.error(f"Error loading event data from {file_path}: {e}")
         return pd.DataFrame(columns=EXPECTED_EVENT_COLS)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Example of how to use (assuming dummy files exist)
     # Create dummy parquet files for testing
     # Note: This part would require pyarrow to be installed to write parquet.
     # For the purpose of this script, we'll assume these files could exist.
 
-    print("Attempting to load dummy data (files likely don't exist unless created separately):")
+    print(
+        "Attempting to load dummy data (files likely don't exist unless created separately):"
+    )
 
     # Dummy file paths
-    dummy_tracking_path = Path("dummy_tracking.gzip") # Updated extension
-    dummy_event_path = Path("dummy_event.gzip")   # Updated extension
+    dummy_tracking_path = Path("dummy_tracking.gzip")  # Updated extension
+    dummy_event_path = Path("dummy_event.gzip")  # Updated extension
 
     # Create dummy data for tracking
     # sample_tracking_df = pd.DataFrame({col: [] for col in EXPECTED_TRACKING_COLS})

@@ -35,12 +35,8 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                  Total Matches
-                </dt>
-                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                  248
-                </dd>
+                <dt className="text-sm font-medium text-gray-500 truncate">Total Matches</dt>
+                <dd className="mt-1 text-3xl font-semibold text-gray-900">248</dd>
               </dl>
             </div>
             <div className="bg-gray-50 px-4 py-2">
@@ -55,12 +51,8 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                  Average Goals
-                </dt>
-                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                  2.7
-                </dd>
+                <dt className="text-sm font-medium text-gray-500 truncate">Average Goals</dt>
+                <dd className="mt-1 text-3xl font-semibold text-gray-900">2.7</dd>
               </dl>
             </div>
             <div className="bg-gray-50 px-4 py-2">
@@ -75,12 +67,8 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                  Possession Average
-                </dt>
-                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                  52%
-                </dd>
+                <dt className="text-sm font-medium text-gray-500 truncate">Possession Average</dt>
+                <dd className="mt-1 text-3xl font-semibold text-gray-900">52%</dd>
               </dl>
             </div>
             <div className="bg-gray-50 px-4 py-2">
@@ -95,12 +83,8 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <dl>
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                  Top Speed Record
-                </dt>
-                <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                  36.2 km/h
-                </dd>
+                <dt className="text-sm font-medium text-gray-500 truncate">Top Speed Record</dt>
+                <dd className="mt-1 text-3xl font-semibold text-gray-900">36.2 km/h</dd>
               </dl>
             </div>
             <div className="bg-gray-50 px-4 py-2">
@@ -124,8 +108,7 @@ export default function Dashboard() {
                 {/* This is where we would render the Pixi.js canvas */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <p className="text-gray-500">
-                    Interactive pitch visualization would render here with
-                    Pixi.js
+                    Interactive pitch visualization would render here with Pixi.js
                   </p>
                 </div>
               </div>
@@ -151,22 +134,15 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4 flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        Antony Matheus
-                      </h4>
+                      <h4 className="text-sm font-medium text-gray-900">Antony Matheus</h4>
                       <span className="text-sm text-gray-500">Ajax</span>
                     </div>
                     <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: "87%" }}
-                      ></div>
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '87%' }}></div>
                     </div>
                   </div>
                   <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      8.7
-                    </span>
+                    <span className="text-sm font-medium text-gray-900">8.7</span>
                   </div>
                 </div>
 
@@ -177,22 +153,15 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4 flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        Jurriën Timber
-                      </h4>
+                      <h4 className="text-sm font-medium text-gray-900">Jurriën Timber</h4>
                       <span className="text-sm text-gray-500">Ajax</span>
                     </div>
                     <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: "82%" }}
-                      ></div>
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '82%' }}></div>
                     </div>
                   </div>
                   <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      8.2
-                    </span>
+                    <span className="text-sm font-medium text-gray-900">8.2</span>
                   </div>
                 </div>
 
@@ -203,22 +172,15 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4 flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        Cody Vipko
-                      </h4>
+                      <h4 className="text-sm font-medium text-gray-900">Cody Vipko</h4>
                       <span className="text-sm text-gray-500">PSV</span>
                     </div>
                     <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: "78%" }}
-                      ></div>
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '78%' }}></div>
                     </div>
                   </div>
                   <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      7.8
-                    </span>
+                    <span className="text-sm font-medium text-gray-900">7.8</span>
                   </div>
                 </div>
 
@@ -229,22 +191,15 @@ export default function Dashboard() {
                   </div>
                   <div className="ml-4 flex-1">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        Daley Klaassen
-                      </h4>
+                      <h4 className="text-sm font-medium text-gray-900">Daley Klaassen</h4>
                       <span className="text-sm text-gray-500">Ajax</span>
                     </div>
                     <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: "75%" }}
-                      ></div>
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '75%' }}></div>
                     </div>
                   </div>
                   <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      7.5
-                    </span>
+                    <span className="text-sm font-medium text-gray-900">7.5</span>
                   </div>
                 </div>
               </div>
@@ -262,9 +217,7 @@ export default function Dashboard() {
           {/* Recent Matches */}
           <div className="bg-white overflow-hidden shadow rounded-lg lg:col-span-2">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">
-                Recent Matches
-              </h3>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">Recent Matches</h3>
               <div className="space-y-3">
                 {/* Match 1 */}
                 <div className="border border-gray-200 rounded-md p-4 hover:border-blue-500 transition-colors duration-200 cursor-pointer">
@@ -320,9 +273,7 @@ export default function Dashboard() {
                     <div className="flex items-center space-x-4">
                       <span className="text-sm font-medium">May 1</span>
                       <span className="text-gray-500">|</span>
-                      <span className="font-medium">
-                        FC Utrecht 1 - 3 FC Twente
-                      </span>
+                      <span className="font-medium">FC Utrecht 1 - 3 FC Twente</span>
                     </div>
                     <div>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -351,9 +302,7 @@ export default function Dashboard() {
           {/* Video Highlights */}
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">
-                Video Highlights
-              </h3>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">Video Highlights</h3>
               <div className="space-y-4">
                 <div className="aspect-video bg-gray-100 rounded-md relative">
                   <div className="absolute inset-0 flex items-center justify-center">

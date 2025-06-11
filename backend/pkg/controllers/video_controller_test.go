@@ -3,13 +3,13 @@ package controllers_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -214,7 +214,9 @@ func TestUploadVideo(t *testing.T) {
 		mockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(path string) bool { return strings.Contains(path, ".mp4") })).Run(func(args mock.Arguments) {
 			p := args.String(1)
 			pathParts := strings.Split(filepath.ToSlash(p), "/")
-			if len(pathParts) >= 2 { videoID = pathParts[len(pathParts)-2] }
+			if len(pathParts) >= 2 {
+				videoID = pathParts[len(pathParts)-2]
+			}
 		}).Return(&services.FileUploadInfo{Path: expectedVideoPath, Size: 12345}, nil).Once()
 
 		mockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(path string) bool { return strings.HasSuffix(path, "_tracking.gzip") })).Return(&services.FileUploadInfo{Path: expectedTrackingPath, Size: 123}, nil).Once()
@@ -223,10 +225,13 @@ func TestUploadVideo(t *testing.T) {
 
 		mockVideoRepo.On("Create", mock.AnythingOfType("*models.Video")).Return(nil).Once()
 
-		var pythonApiCallDetails struct { Called bool; Body map[string]string }
+		var pythonApiCallDetails struct {
+			Called bool
+			Body   map[string]string
+		}
 		pythonApiMockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			bodyBytes, _ := io.ReadAll(r.Body)
-			r.Body.Close() // Important: close body after reading
+			r.Body.Close()                                    // Important: close body after reading
 			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Replace body for decoder
 			t.Logf("Mock Python API received body: %s", string(bodyBytes))
 
@@ -261,7 +266,7 @@ func TestUploadVideo(t *testing.T) {
 		assert.NotEmpty(t, responseBody["video_id"])
 
 		if videoID != "" {
-		    assert.Equal(t, videoID, responseBody["video_id"])
+			assert.Equal(t, videoID, responseBody["video_id"])
 		}
 
 		mockStorageSvc.AssertExpectations(t)
@@ -301,7 +306,7 @@ func TestUploadVideo(t *testing.T) {
 		assert.Contains(t, rr.Body.String(), "Tracking and event files are required")
 	})
 
-    t.Run("Storage service Create (for file) fails", func(t *testing.T) {
+	t.Run("Storage service Create (for file) fails", func(t *testing.T) {
 		localMockVideoRepo := new(MockVideoRepository)
 		localMockStorageSvc := new(MockStorageService)
 		localVideoService := services.NewVideoService(localMockVideoRepo, localMockStorageSvc)
@@ -309,7 +314,7 @@ func TestUploadVideo(t *testing.T) {
 		localRouter := mux.NewRouter()
 		localRouter.HandleFunc("/api/v1/videos", localVideoController.UploadVideo).Methods("POST")
 
-        body := new(bytes.Buffer)
+		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
 		writer.WriteField("title", "File Create Fail")
 		trackingPart, _ := writer.CreateFormFile("tracking_file", "track.gzip")
@@ -320,66 +325,65 @@ func TestUploadVideo(t *testing.T) {
 		videoFilePart.Write([]byte("dummy video"))
 		writer.Close()
 
-        localMockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(p string) bool { return strings.Contains(p, ".mp4")})).Return(&services.FileUploadInfo{Path: "path/to/video.mp4"}, nil).Once()
-        localMockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(p string) bool { return strings.HasSuffix(p, "_tracking.gzip")})).Return(&services.FileUploadInfo{Path: "path/to/tracking.gzip"}, nil).Once()
-        localMockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(p string) bool { return strings.HasSuffix(p, "_events.gzip")})).Return(nil, fmt.Errorf("cannot create event file")).Once()
+		localMockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(p string) bool { return strings.Contains(p, ".mp4") })).Return(&services.FileUploadInfo{Path: "path/to/video.mp4"}, nil).Once()
+		localMockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(p string) bool { return strings.HasSuffix(p, "_tracking.gzip") })).Return(&services.FileUploadInfo{Path: "path/to/tracking.gzip"}, nil).Once()
+		localMockStorageSvc.On("UploadFile", mock.Anything, mock.MatchedBy(func(p string) bool { return strings.HasSuffix(p, "_events.gzip") })).Return(nil, fmt.Errorf("cannot create event file")).Once()
 
-        localMockStorageSvc.On("DeleteFile", "path/to/video.mp4").Return(nil).Once()
-        localMockStorageSvc.On("DeleteFile", "path/to/tracking.gzip").Return(nil).Once()
+		localMockStorageSvc.On("DeleteFile", "path/to/video.mp4").Return(nil).Once()
+		localMockStorageSvc.On("DeleteFile", "path/to/tracking.gzip").Return(nil).Once()
 
-
-        req := httptest.NewRequest("POST", "/api/v1/videos", body)
+		req := httptest.NewRequest("POST", "/api/v1/videos", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		rr := httptest.NewRecorder()
 		localRouter.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusInternalServerError, rr.Code)
-        assert.Contains(t, rr.Body.String(), "cannot create event file")
-        localMockStorageSvc.AssertExpectations(t)
-    })
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		assert.Contains(t, rr.Body.String(), "cannot create event file")
+		localMockStorageSvc.AssertExpectations(t)
+	})
 }
 
 func TestGetVideo(t *testing.T) {
-    mockVideoRepo := new(MockVideoRepository)
-    mockStorageSvc := new(MockStorageService)
-    videoService := services.NewVideoService(mockVideoRepo, mockStorageSvc)
-    videoController := controllers.NewVideoController(videoService, mockStorageSvc, "", nil)
+	mockVideoRepo := new(MockVideoRepository)
+	mockStorageSvc := new(MockStorageService)
+	videoService := services.NewVideoService(mockVideoRepo, mockStorageSvc)
+	videoController := controllers.NewVideoController(videoService, mockStorageSvc, "", nil)
 
-    router := mux.NewRouter()
-    router.HandleFunc("/videos/{id}", videoController.GetVideo)
+	router := mux.NewRouter()
+	router.HandleFunc("/videos/{id}", videoController.GetVideo)
 
-    t.Run("GetVideo not found", func(t *testing.T) {
+	t.Run("GetVideo not found", func(t *testing.T) {
 		mockVideoRepo.On("FindByID", "nonexistent").Return(nil, errors.New("video not found")).Once()
 
-        req := httptest.NewRequest("GET", "/videos/nonexistent", nil)
-        rr := httptest.NewRecorder()
-        router.ServeHTTP(rr, req)
+		req := httptest.NewRequest("GET", "/videos/nonexistent", nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusNotFound, rr.Code)
-        assert.Contains(t, rr.Body.String(), "Video not found")
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Contains(t, rr.Body.String(), "Video not found")
 		mockVideoRepo.AssertExpectations(t)
-    })
+	})
 }
 
 func TestDeleteVideo(t *testing.T) {
-    mockVideoRepo := new(MockVideoRepository)
-    mockStorageSvc := new(MockStorageService)
-    videoService := services.NewVideoService(mockVideoRepo, mockStorageSvc)
-    videoController := controllers.NewVideoController(videoService, mockStorageSvc, "", nil)
+	mockVideoRepo := new(MockVideoRepository)
+	mockStorageSvc := new(MockStorageService)
+	videoService := services.NewVideoService(mockVideoRepo, mockStorageSvc)
+	videoController := controllers.NewVideoController(videoService, mockStorageSvc, "", nil)
 
-    router := mux.NewRouter()
-    router.HandleFunc("/videos/{id}", videoController.DeleteVideo)
+	router := mux.NewRouter()
+	router.HandleFunc("/videos/{id}", videoController.DeleteVideo)
 
-    t.Run("DeleteVideo not found", func(t *testing.T) {
-        mockVideoRepo.On("FindByID", "anyid").Return(nil, errors.New("video not found")).Once()
+	t.Run("DeleteVideo not found", func(t *testing.T) {
+		mockVideoRepo.On("FindByID", "anyid").Return(nil, errors.New("video not found")).Once()
 
-        req := httptest.NewRequest("DELETE", "/videos/anyid", nil)
-        rr := httptest.NewRecorder()
-        router.ServeHTTP(rr, req)
+		req := httptest.NewRequest("DELETE", "/videos/anyid", nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
 
-        assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Equal(t, http.StatusNotFound, rr.Code)
 		mockVideoRepo.AssertExpectations(t)
-    })
+	})
 
 	t.Run("DeleteVideo successful", func(t *testing.T) {
 		videoID := "existingID"
@@ -392,7 +396,6 @@ func TestDeleteVideo(t *testing.T) {
 		mockStorageSvc.On("DeleteFile", mockVideo.TrackingPath).Return(nil).Once()
 		mockStorageSvc.On("DeleteFile", mockVideo.EventFilePath).Return(nil).Once()
 
-
 		req := httptest.NewRequest("DELETE", "/videos/"+videoID, nil)
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
@@ -402,4 +405,5 @@ func TestDeleteVideo(t *testing.T) {
 		mockStorageSvc.AssertExpectations(t)
 	})
 }
+
 // End of video_controller_test.go

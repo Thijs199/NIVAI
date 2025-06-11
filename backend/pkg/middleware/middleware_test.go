@@ -30,7 +30,7 @@ func (m *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func TestLoggerMiddleware(t *testing.T) {
 	var logOutput bytes.Buffer
-	log.SetOutput(&logOutput) // Capture log output
+	log.SetOutput(&logOutput)      // Capture log output
 	defer log.SetOutput(os.Stderr) // Reset log output
 
 	nextHandler := &mockHandler{

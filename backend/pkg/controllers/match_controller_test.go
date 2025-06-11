@@ -3,9 +3,9 @@ package controllers_test
 import (
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"mime/multipart"
 	"strings"
 	"testing"
 	"time"
@@ -54,8 +54,8 @@ func (m *MockVideoService) DeleteVideo(id string) error {
 
 // CreateVideo is a newer method that might be used by UploadVideo
 func (m *MockVideoService) CreateVideo(video *models.Video) error {
-    args := m.Called(video)
-    return args.Error(0)
+	args := m.Called(video)
+	return args.Error(0)
 }
 
 func (m *MockVideoService) CreateVideoEntry(video *models.Video) (*models.Video, error) {
@@ -87,7 +87,6 @@ func (m *MockVideoService) UploadVideo(videoFile multipart.File, videoFileHeader
 	return args.Get(0).(*models.Video), args.Error(1)
 }
 
-
 // mockPythonStatusApi is a helper for match status checks
 func mockPythonStatusApi(t *testing.T, statusResponses map[string]controllers.PythonStatusResponse) *httptest.Server {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +111,6 @@ func mockPythonStatusApi(t *testing.T, statusResponses map[string]controllers.Py
 	}))
 	return server
 }
-
 
 func TestListMatches(t *testing.T) {
 	// Default videos to be returned by the mock service
@@ -175,7 +173,7 @@ func TestListMatches(t *testing.T) {
 
 	t.Run("VideoService returns an error", func(t *testing.T) {
 		mockVideoSvc := new(MockVideoService)
-        matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
+		matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
 
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(nil, fmt.Errorf("database error")).Once()
 
@@ -190,7 +188,7 @@ func TestListMatches(t *testing.T) {
 
 	t.Run("Empty list of matches", func(t *testing.T) {
 		mockVideoSvc := new(MockVideoService)
-        matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
+		matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
 
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return([]*models.Video{}, nil).Once()
 
@@ -207,65 +205,64 @@ func TestListMatches(t *testing.T) {
 		mockVideoSvc.AssertExpectations(t)
 	})
 
-    t.Run("Python API status endpoint returns errors for some matches", func(t *testing.T) {
-        videosWithOneProblematic := []*models.Video{
-            {ID: "ok_match", Title: "OK Match", CreatedAt: time.Now()},
-            {ID: "err_match", Title: "Error Match", CreatedAt: time.Now()},
-        }
-        // Removed incorrectly scoped mockVideoSvc.On("ListVideos",...) call from here
+	t.Run("Python API status endpoint returns errors for some matches", func(t *testing.T) {
+		videosWithOneProblematic := []*models.Video{
+			{ID: "ok_match", Title: "OK Match", CreatedAt: time.Now()},
+			{ID: "err_match", Title: "Error Match", CreatedAt: time.Now()},
+		}
+		// Removed incorrectly scoped mockVideoSvc.On("ListVideos",...) call from here
 
-        statusResps := map[string]controllers.PythonStatusResponse{
-            "ok_match": {Status: "processed"},
-            // "err_match" will cause an error in the mock server if not defined, or we can make mock return error
-        }
+		statusResps := map[string]controllers.PythonStatusResponse{
+			"ok_match": {Status: "processed"},
+			// "err_match" will cause an error in the mock server if not defined, or we can make mock return error
+		}
 
-        mockVideoSvc := new(MockVideoService) // Ensure mockVideoSvc is defined in this sub-test's scope
+		mockVideoSvc := new(MockVideoService) // Ensure mockVideoSvc is defined in this sub-test's scope
 
-        // Mock Python API to simulate an error for one match
-        mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            matchID := strings.Split(strings.Trim(r.URL.Path, "/"), "/")[1]
-            if matchID == "err_match" {
-                http.Error(w, "simulated python api error", http.StatusInternalServerError)
-                return
-            }
-            statusResp, _ := statusResps[matchID]
-            w.Header().Set("Content-Type", "application/json")
-            json.NewEncoder(w).Encode(statusResp)
-        }))
-        defer mockApi.Close()
+		// Mock Python API to simulate an error for one match
+		mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			matchID := strings.Split(strings.Trim(r.URL.Path, "/"), "/")[1]
+			if matchID == "err_match" {
+				http.Error(w, "simulated python api error", http.StatusInternalServerError)
+				return
+			}
+			statusResp := statusResps[matchID]
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(statusResp)
+		}))
+		defer mockApi.Close()
 
-        matchController := controllers.NewMatchController(mockVideoSvc, mockApi.URL, mockApi.Client())
+		matchController := controllers.NewMatchController(mockVideoSvc, mockApi.URL, mockApi.Client())
 
-        mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(videosWithOneProblematic, nil).Once()
+		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(videosWithOneProblematic, nil).Once()
 
+		req := httptest.NewRequest("GET", "/api/v1/matches", nil)
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(matchController.ListMatches).ServeHTTP(rr, req)
 
-        req := httptest.NewRequest("GET", "/api/v1/matches", nil)
-        rr := httptest.NewRecorder()
-        http.HandlerFunc(matchController.ListMatches).ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusOK, rr.Code) // Main request should still succeed
+		var responseItems []controllers.MatchListItem
+		err := json.NewDecoder(rr.Body).Decode(&responseItems)
+		require.NoError(t, err)
+		require.Len(t, responseItems, 2)
 
-        assert.Equal(t, http.StatusOK, rr.Code) // Main request should still succeed
-        var responseItems []controllers.MatchListItem
-        err := json.NewDecoder(rr.Body).Decode(&responseItems)
-        require.NoError(t, err)
-        require.Len(t, responseItems, 2)
-
-        foundOkMatch := false
-        foundErrMatch := false
-        for _, item := range responseItems {
-            if item.ID == "ok_match" {
-                assert.Equal(t, "processed", item.AnalyticsStatus)
-                foundOkMatch = true
-            }
-            if item.ID == "err_match" {
-                // Based on getAnalyticsStatus logic for non-OK status or decode error
-                assert.True(t, strings.HasPrefix(item.AnalyticsStatus, "error_status_") || strings.HasPrefix(item.AnalyticsStatus, "error_decoding_status"), "Status was: "+item.AnalyticsStatus)
-                foundErrMatch = true
-            }
-        }
-        assert.True(t, foundOkMatch, "OK match not found in response")
-        assert.True(t, foundErrMatch, "Error match not found in response")
-        mockVideoSvc.AssertExpectations(t)
-    })
+		foundOkMatch := false
+		foundErrMatch := false
+		for _, item := range responseItems {
+			if item.ID == "ok_match" {
+				assert.Equal(t, "processed", item.AnalyticsStatus)
+				foundOkMatch = true
+			}
+			if item.ID == "err_match" {
+				// Based on getAnalyticsStatus logic for non-OK status or decode error
+				assert.True(t, strings.HasPrefix(item.AnalyticsStatus, "error_status_") || strings.HasPrefix(item.AnalyticsStatus, "error_decoding_status"), "Status was: "+item.AnalyticsStatus)
+				foundErrMatch = true
+			}
+		}
+		assert.True(t, foundOkMatch, "OK match not found in response")
+		assert.True(t, foundErrMatch, "Error match not found in response")
+		mockVideoSvc.AssertExpectations(t)
+	})
 }
 
 // Note on PYTHON_API_URL and t.Setenv: Same caveats apply as in analytics_controller_test.go.

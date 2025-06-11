@@ -189,7 +189,7 @@ func (s *DefaultVideoService) DeleteVideo(id string) error {
 	// Soft delete in database
 	if err := s.videoRepo.Delete(id); err != nil {
 		if strings.Contains(err.Error(), "not found") { // Or use errors.Is if a specific error var exists
-			 return ErrVideoNotFound
+			return ErrVideoNotFound
 		}
 		return err
 	}

@@ -14,7 +14,7 @@ import (
 type Video struct {
 	ID              string       `json:"id"`
 	Title           string       `json:"title"`
-	Description     string        `json:"description"`
+	Description     string       `json:"description"`
 	FilePath        string       `json:"file_path"`
 	StorageProvider string       `json:"storage_provider"` // "azure_blob", "local", etc.
 	Duration        float64      `json:"duration"`         // Duration in seconds
@@ -27,17 +27,17 @@ type Video struct {
 	DeletedAt       sql.NullTime `json:"deleted_at,omitempty"`
 
 	// Metadata related to the match/event
-	MatchID      string     `json:"match_id,omitempty"`
-	MatchDate    time.Time  `json:"match_date,omitempty"`
-	HomeTeam     string     `json:"home_team,omitempty"`
-	AwayTeam     string     `json:"away_team,omitempty"`
-	Competition  string     `json:"competition,omitempty"`
-	Season       string     `json:"season,omitempty"`
+	MatchID     string    `json:"match_id,omitempty"`
+	MatchDate   time.Time `json:"match_date,omitempty"`
+	HomeTeam    string    `json:"home_team,omitempty"`
+	AwayTeam    string    `json:"away_team,omitempty"`
+	Competition string    `json:"competition,omitempty"`
+	Season      string    `json:"season,omitempty"`
 
 	// Tracking data information
 	// HasTrackingData bool       `json:"has_tracking_data"` // Field removed, infer from TrackingPath
-	TrackingPath    string     `json:"tracking_path,omitempty"`
-	EventFilePath   string     `json:"event_file_path,omitempty"`
+	TrackingPath  string `json:"tracking_path,omitempty"`
+	EventFilePath string `json:"event_file_path,omitempty"`
 }
 
 /**
@@ -186,7 +186,7 @@ func (r *PostgresVideoRepository) Create(video *Video) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	`
 	// Assuming event_file_path is the 20th argument now.
-	
+
 	_, err := r.db.Exec(query,
 		video.ID, video.Title, video.Description, video.FilePath, video.StorageProvider,
 		video.Duration, video.Resolution, video.Format, video.Size, video.ProcessingState,
@@ -194,7 +194,7 @@ func (r *PostgresVideoRepository) Create(video *Video) error {
 		video.MatchID, video.MatchDate, video.HomeTeam, video.AwayTeam, video.Competition, video.Season,
 		video.TrackingPath, video.EventFilePath, // video.HasTrackingData removed
 	)
-	
+
 	return err
 }
 
@@ -210,48 +210,48 @@ func (r *PostgresVideoRepository) Update(video *Video) error {
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 	// Assuming event_file_path is $19 now.
-	
+
 	result, err := r.db.Exec(query,
 		video.ID, video.Title, video.Description, video.FilePath, video.StorageProvider,
 		video.Duration, video.Resolution, video.Format, video.Size, video.ProcessingState,
 		time.Now(), video.MatchID, video.MatchDate, video.HomeTeam, video.AwayTeam,
 		video.Competition, video.Season, video.TrackingPath, video.EventFilePath, // video.HasTrackingData removed
 	)
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-	
+
 	if rowsAffected == 0 {
 		return errors.New("video not found")
 	}
-	
+
 	return nil
 }
 
 // Delete performs a soft delete on a video
 func (r *PostgresVideoRepository) Delete(id string) error {
 	query := `UPDATE videos SET deleted_at = $2 WHERE id = $1 AND deleted_at IS NULL`
-	
+
 	result, err := r.db.Exec(query, id, time.Now())
 	if err != nil {
 		return err
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-	
+
 	if rowsAffected == 0 {
 		return errors.New("video not found")
 	}
-	
+
 	return nil
 }
 
@@ -267,13 +267,13 @@ func (r *PostgresVideoRepository) FindByMatchID(matchID string) ([]*Video, error
 		WHERE match_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 	`
-	
+
 	rows, err := r.db.Query(query, matchID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var videos []*Video
 	for rows.Next() {
 		var video Video
@@ -284,14 +284,14 @@ func (r *PostgresVideoRepository) FindByMatchID(matchID string) ([]*Video, error
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
 			&video.TrackingPath, &video.EventFilePath,
 		)
-		
+
 		if err != nil {
 			return nil, err
 		}
-		
+
 		videos = append(videos, &video)
 	}
-	
+
 	return videos, nil
 }
 
@@ -300,7 +300,7 @@ func (r *PostgresVideoRepository) FindByTeam(teamName string, limit, offset int)
 	if limit <= 0 {
 		limit = 10
 	}
-	
+
 	query := `
 		SELECT id, title, description, file_path, storage_provider,
 			   duration, resolution, format, size, processing_state,
@@ -312,13 +312,13 @@ func (r *PostgresVideoRepository) FindByTeam(teamName string, limit, offset int)
 		ORDER BY match_date DESC
 		LIMIT $2 OFFSET $3
 	`
-	
+
 	rows, err := r.db.Query(query, teamName, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var videos []*Video
 	for rows.Next() {
 		var video Video
@@ -329,14 +329,14 @@ func (r *PostgresVideoRepository) FindByTeam(teamName string, limit, offset int)
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
 			&video.TrackingPath, &video.EventFilePath,
 		)
-		
+
 		if err != nil {
 			return nil, err
 		}
-		
+
 		videos = append(videos, &video)
 	}
-	
+
 	return videos, nil
 }
 
@@ -345,7 +345,7 @@ func (r *PostgresVideoRepository) FindByDateRange(start, end time.Time, limit, o
 	if limit <= 0 {
 		limit = 10
 	}
-	
+
 	query := `
 		SELECT id, title, description, file_path, storage_provider,
 			   duration, resolution, format, size, processing_state,
@@ -357,13 +357,13 @@ func (r *PostgresVideoRepository) FindByDateRange(start, end time.Time, limit, o
 		ORDER BY match_date DESC
 		LIMIT $3 OFFSET $4
 	`
-	
+
 	rows, err := r.db.Query(query, start, end, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var videos []*Video
 	for rows.Next() {
 		var video Video
@@ -374,14 +374,14 @@ func (r *PostgresVideoRepository) FindByDateRange(start, end time.Time, limit, o
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
 			&video.TrackingPath, &video.EventFilePath,
 		)
-		
+
 		if err != nil {
 			return nil, err
 		}
-		
+
 		videos = append(videos, &video)
 	}
-	
+
 	return videos, nil
 }
 
@@ -390,7 +390,7 @@ func (r *PostgresVideoRepository) FindByProcessingState(state string, limit, off
 	if limit <= 0 {
 		limit = 10
 	}
-	
+
 	query := `
 		SELECT id, title, description, file_path, storage_provider,
 			   duration, resolution, format, size, processing_state,
@@ -402,13 +402,13 @@ func (r *PostgresVideoRepository) FindByProcessingState(state string, limit, off
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
-	
+
 	rows, err := r.db.Query(query, state, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var videos []*Video
 	for rows.Next() {
 		var video Video
@@ -419,13 +419,13 @@ func (r *PostgresVideoRepository) FindByProcessingState(state string, limit, off
 			&video.MatchID, &video.MatchDate, &video.HomeTeam, &video.AwayTeam, &video.Competition, &video.Season,
 			&video.TrackingPath, &video.EventFilePath,
 		)
-		
+
 		if err != nil {
 			return nil, err
 		}
-		
+
 		videos = append(videos, &video)
 	}
-	
+
 	return videos, nil
 }

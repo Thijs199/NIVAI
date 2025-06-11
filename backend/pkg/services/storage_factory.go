@@ -17,7 +17,7 @@ type StorageType string
 const (
 	// AzureBlobStorageType represents Azure Blob Storage
 	AzureBlobStorageType StorageType = "azure_blob"
-	
+
 	// LocalFileStorageType represents local file system storage
 	LocalFileStorageType StorageType = "local_file"
 )
@@ -26,7 +26,7 @@ const (
  * StorageFactory creates and configures storage services based on configuration.
  * Implements the Factory design pattern to abstract storage implementation creation.
  */
-type StorageFactory struct {}
+type StorageFactory struct{}
 
 /**
  * NewStorageFactory creates a new storage factory instance.
@@ -51,27 +51,27 @@ func (f *StorageFactory) CreateStorage(storageType StorageType) (StorageService,
 		accountName := os.Getenv("AZURE_STORAGE_ACCOUNT")
 		accountKey := os.Getenv("AZURE_STORAGE_KEY")
 		containerName := os.Getenv("AZURE_STORAGE_CONTAINER")
-		
+
 		// Validate required values
 		if accountName == "" || accountKey == "" || containerName == "" {
 			return nil, errors.New("missing required Azure Storage configuration")
 		}
-		
+
 		// Create and return Azure blob storage service
 		return NewAzureBlobStorage(accountName, accountKey, containerName)
-		
+
 	case LocalFileStorageType:
 		// Get base path from environment
 		basePath := os.Getenv("EXTERNAL_DATA_PATH")
-		
+
 		// Validate required values
 		if basePath == "" {
 			return nil, errors.New("missing required Local Storage configuration: EXTERNAL_DATA_PATH")
 		}
-		
+
 		// Create and return local file storage service
 		return NewLocalFileStorage(basePath)
-		
+
 	default:
 		return nil, fmt.Errorf("unsupported storage type: %s", storageType)
 	}
@@ -91,12 +91,12 @@ func (f *StorageFactory) CreateDefaultStorage() (StorageService, error) {
 			return f.CreateStorage(LocalFileStorageType)
 		}
 	}
-	
+
 	// If local storage isn't configured, try Azure Blob
 	if accountName := os.Getenv("AZURE_STORAGE_ACCOUNT"); accountName != "" {
 		return f.CreateStorage(AzureBlobStorageType)
 	}
-	
+
 	// No storage configuration found
 	return nil, errors.New("no valid storage configuration found")
 }

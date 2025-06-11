@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
 import React, { useState } from 'react';
 
 /**
  * AnalyticsPage provides comprehensive football analytics and visualizations.
  * Offers detailed performance metrics, match statistics, and video analysis tools.
- * 
+ *
  * @returns The Analytics page component with interactive data visualizations
  */
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState('performance');
   const [selectedTimeframe, setSelectedTimeframe] = useState('season');
-  
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
-          <select 
+          <select
             className="bg-white border border-gray-300 rounded-md py-2 px-4 text-sm"
             value={selectedTimeframe}
             onChange={(e) => setSelectedTimeframe(e.target.value)}
@@ -32,35 +32,35 @@ export default function AnalyticsPage() {
           </button>
         </div>
       </div>
-      
+
       {/* Analytics Navigation Tabs */}
       <div className="mb-6 border-b border-gray-200">
         <nav className="flex space-x-8">
-          <button 
+          <button
             onClick={() => setActiveTab('performance')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'performance' 
-                ? 'border-blue-500 text-blue-600' 
+              activeTab === 'performance'
+                ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
             Performance Metrics
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('statistics')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'statistics' 
-                ? 'border-blue-500 text-blue-600' 
+              activeTab === 'statistics'
+                ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
             Match Statistics
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('video')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'video' 
-                ? 'border-blue-500 text-blue-600' 
+              activeTab === 'video'
+                ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
@@ -68,7 +68,7 @@ export default function AnalyticsPage() {
           </button>
         </nav>
       </div>
-      
+
       {/* Performance Metrics Content */}
       {activeTab === 'performance' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -81,7 +81,7 @@ export default function AnalyticsPage() {
                   <span className="text-sm font-medium text-gray-700">58%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '58%'}}></div>
+                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '58%' }}></div>
                 </div>
               </div>
               <div>
@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
                   <span className="text-sm font-medium text-gray-700">82%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '82%'}}></div>
+                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '82%' }}></div>
                 </div>
               </div>
               <div>
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
                   <span className="text-sm font-medium text-gray-700">65%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '65%'}}></div>
+                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '65%' }}></div>
                 </div>
               </div>
               <div>
@@ -108,7 +108,7 @@ export default function AnalyticsPage() {
                   <span className="text-sm font-medium text-gray-700">74%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '74%'}}></div>
+                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: '74%' }}></div>
                 </div>
               </div>
             </div>
@@ -147,7 +147,9 @@ export default function AnalyticsPage() {
                 </select>
               </div>
             </div>
-            <p className="text-xs text-gray-500">Select a player and match to view movement patterns and positioning analysis</p>
+            <p className="text-xs text-gray-500">
+              Select a player and match to view movement patterns and positioning analysis
+            </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-3">Physical Metrics</h2>
@@ -186,7 +188,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       )}
-      
+
       {/* Match Statistics Content */}
       {activeTab === 'statistics' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -203,7 +205,7 @@ export default function AnalyticsPage() {
                 <h3 className="font-medium">PSV</h3>
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
@@ -212,11 +214,11 @@ export default function AnalyticsPage() {
                   <span>42%</span>
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
-                  <div className="bg-blue-600" style={{width: '58%'}}></div>
-                  <div className="bg-red-600" style={{width: '42%'}}></div>
+                  <div className="bg-blue-600" style={{ width: '58%' }}></div>
+                  <div className="bg-red-600" style={{ width: '42%' }}></div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>14</span>
@@ -224,11 +226,11 @@ export default function AnalyticsPage() {
                   <span>9</span>
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
-                  <div className="bg-blue-600" style={{width: '60%'}}></div>
-                  <div className="bg-red-600" style={{width: '40%'}}></div>
+                  <div className="bg-blue-600" style={{ width: '60%' }}></div>
+                  <div className="bg-red-600" style={{ width: '40%' }}></div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>6</span>
@@ -236,11 +238,11 @@ export default function AnalyticsPage() {
                   <span>3</span>
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
-                  <div className="bg-blue-600" style={{width: '67%'}}></div>
-                  <div className="bg-red-600" style={{width: '33%'}}></div>
+                  <div className="bg-blue-600" style={{ width: '67%' }}></div>
+                  <div className="bg-red-600" style={{ width: '33%' }}></div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>532</span>
@@ -248,11 +250,11 @@ export default function AnalyticsPage() {
                   <span>418</span>
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
-                  <div className="bg-blue-600" style={{width: '56%'}}></div>
-                  <div className="bg-red-600" style={{width: '44%'}}></div>
+                  <div className="bg-blue-600" style={{ width: '56%' }}></div>
+                  <div className="bg-red-600" style={{ width: '44%' }}></div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>87%</span>
@@ -260,11 +262,11 @@ export default function AnalyticsPage() {
                   <span>82%</span>
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
-                  <div className="bg-blue-600" style={{width: '51.5%'}}></div>
-                  <div className="bg-red-600" style={{width: '48.5%'}}></div>
+                  <div className="bg-blue-600" style={{ width: '51.5%' }}></div>
+                  <div className="bg-red-600" style={{ width: '48.5%' }}></div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>8</span>
@@ -272,48 +274,48 @@ export default function AnalyticsPage() {
                   <span>5</span>
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
-                  <div className="bg-blue-600" style={{width: '61.5%'}}></div>
-                  <div className="bg-red-600" style={{width: '38.5%'}}></div>
+                  <div className="bg-blue-600" style={{ width: '61.5%' }}></div>
+                  <div className="bg-red-600" style={{ width: '38.5%' }}></div>
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-3">Key Events</h2>
             <div className="space-y-4">
               <div className="relative pl-6 pb-4 border-l-2 border-blue-500">
                 <span className="absolute left-[-8px] top-0 w-4 h-4 rounded-full bg-blue-500"></span>
                 <p className="font-medium">Goal - Ajax</p>
-                <p className="text-gray-500 text-sm">Antony Matheus (23')</p>
+                <p className="text-gray-500 text-sm">Antony Matheus (23&apos;)</p>
                 <p className="text-xs text-gray-400 mt-1">Header from center of the box</p>
               </div>
-              
+
               <div className="relative pl-6 pb-4 border-l-2 border-yellow-500">
                 <span className="absolute left-[-8px] top-0 w-4 h-4 rounded-full bg-yellow-500"></span>
                 <p className="font-medium">Yellow Card - PSV</p>
-                <p className="text-gray-500 text-sm">Ibrahim Sangaré (32')</p>
+                <p className="text-gray-500 text-sm">Ibrahim Sangaré (32&apos;)</p>
                 <p className="text-xs text-gray-400 mt-1">Tactical foul in midfield</p>
               </div>
-              
+
               <div className="relative pl-6 pb-4 border-l-2 border-blue-500">
                 <span className="absolute left-[-8px] top-0 w-4 h-4 rounded-full bg-blue-500"></span>
                 <p className="font-medium">Goal - Ajax</p>
-                <p className="text-gray-500 text-sm">Daley Klaassen (45+2')</p>
+                <p className="text-gray-500 text-sm">Daley Klaassen (45+2&apos;)</p>
                 <p className="text-xs text-gray-400 mt-1">Penalty kick, bottom right corner</p>
               </div>
-              
+
               <div className="relative pl-6 pb-4 border-l-2 border-red-500">
                 <span className="absolute left-[-8px] top-0 w-4 h-4 rounded-full bg-red-500"></span>
                 <p className="font-medium">Goal - PSV</p>
-                <p className="text-gray-500 text-sm">Cody Vipko (58')</p>
+                <p className="text-gray-500 text-sm">Cody Vipko (58&apos;)</p>
                 <p className="text-xs text-gray-400 mt-1">Left-footed shot from outside the box</p>
               </div>
-              
+
               <div className="relative pl-6 border-l-2 border-blue-500">
                 <span className="absolute left-[-8px] top-0 w-4 h-4 rounded-full bg-blue-500"></span>
                 <p className="font-medium">Goal - Ajax</p>
-                <p className="text-gray-500 text-sm">Jurriën Timber (76')</p>
+                <p className="text-gray-500 text-sm">Jurriën Timber (76&apos;)</p>
                 <p className="text-xs text-gray-400 mt-1">Header from set piece</p>
               </div>
             </div>
@@ -325,7 +327,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       )}
-      
+
       {/* Video Analysis Content */}
       {activeTab === 'video' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -341,13 +343,22 @@ export default function AnalyticsPage() {
               <div className="absolute bottom-0 left-0 right-0 h-8 bg-black bg-opacity-50 flex items-center px-2">
                 <div className="flex items-center justify-between w-full">
                   <button className="text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </button>
                   <div className="flex-1 mx-2">
                     <div className="h-1 bg-white bg-opacity-50 rounded">
-                      <div className="h-1 bg-blue-500 rounded" style={{width: '45%'}}></div>
+                      <div className="h-1 bg-blue-500 rounded" style={{ width: '45%' }}></div>
                     </div>
                   </div>
                   <span className="text-white text-xs">2:15 / 5:30</span>
@@ -373,39 +384,43 @@ export default function AnalyticsPage() {
               <div className="aspect-video bg-gray-200 rounded cursor-pointer"></div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-3">Video Insights</h2>
             <div className="space-y-4">
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <h3 className="font-medium text-blue-800">Defensive Organization</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Ajax's compact defensive shape reduced PSV's attacking effectiveness by 32% compared to their season average.
+                  Ajax&apos;s compact defensive shape reduced PSV&apos;s attacking effectiveness by
+                  32% compared to their season average.
                 </p>
               </div>
-              
+
               <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                 <h3 className="font-medium text-green-800">Pressing Patterns</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  High pressing intensity in opposition half resulted in 12 ball recoveries leading to 3 scoring opportunities.
+                  High pressing intensity in opposition half resulted in 12 ball recoveries leading
+                  to 3 scoring opportunities.
                 </p>
               </div>
-              
+
               <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
                 <h3 className="font-medium text-purple-800">Set Piece Analysis</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Ajax scored from 2 of 8 corner kick opportunities, significantly above the league average conversion rate.
+                  Ajax scored from 2 of 8 corner kick opportunities, significantly above the league
+                  average conversion rate.
                 </p>
               </div>
-              
+
               <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
                 <h3 className="font-medium text-orange-800">Transition Play</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Counter-attacking speed averaged 3.2 seconds from ball recovery to shot - fastest in the league this season.
+                  Counter-attacking speed averaged 3.2 seconds from ball recovery to shot - fastest
+                  in the league this season.
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-4 pt-4 border-t">
               <button className="text-blue-600 text-sm font-medium hover:text-blue-800">
                 Generate Full Analysis Report →

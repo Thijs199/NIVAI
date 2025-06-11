@@ -38,7 +38,7 @@ export default function MatchesPage() {
         setMatches(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
-        console.error("Error fetching matches:", err);
+        console.error('Error fetching matches:', err);
       } finally {
         setIsLoading(false);
       }
@@ -87,21 +87,30 @@ export default function MatchesPage() {
             >
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                 <div className="mb-2 sm:mb-0">
-                    <h3 className="text-xl font-semibold text-blue-700 hover:text-blue-800">{match.match_name}</h3>
-                    {match.home_team && match.away_team && (
-                        <p className="text-sm text-slate-600">{match.home_team} vs {match.away_team}</p>
-                    )}
-                    {match.competition && (
-                        <p className="text-sm text-slate-500">{match.competition} - {match.season}</p>
-                    )}
+                  <h3 className="text-xl font-semibold text-blue-700 hover:text-blue-800">
+                    {match.match_name}
+                  </h3>
+                  {match.home_team && match.away_team && (
+                    <p className="text-sm text-slate-600">
+                      {match.home_team} vs {match.away_team}
+                    </p>
+                  )}
+                  {match.competition && (
+                    <p className="text-sm text-slate-500">
+                      {match.competition} - {match.season}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-start sm:items-end space-y-1">
-                    <span className={getStatusColor(match.analytics_status)}>
-                        {match.analytics_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </span>
-                    <p className="text-xs text-slate-400">
-                        Uploaded: {new Date(match.upload_date).toLocaleDateString()} {new Date(match.upload_date).toLocaleTimeString()}
-                    </p>
+                  <span className={getStatusColor(match.analytics_status)}>
+                    {match.analytics_status
+                      .replace(/_/g, ' ')
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Uploaded: {new Date(match.upload_date).toLocaleDateString()}{' '}
+                    {new Date(match.upload_date).toLocaleTimeString()}
+                  </p>
                 </div>
               </div>
             </li>

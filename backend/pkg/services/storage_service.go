@@ -124,12 +124,12 @@ func (s *AzureBlobStorage) UploadFile(file multipart.File, path string) (*FileUp
 	if !ok {
 		return nil, errors.New("file does not support seeking")
 	}
-	
+
 	size, err := fileSeeker.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = fileSeeker.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
