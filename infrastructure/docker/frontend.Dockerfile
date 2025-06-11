@@ -8,11 +8,16 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json /app/
 RUN npm ci
 
+# Copy configuration files needed for linting and building
+COPY frontend/tsconfig.json frontend/next.config.ts frontend/eslint.config.mjs frontend/postcss.config.mjs /app/
+COPY frontend/next-env.d.ts frontend/.prettierrc.json /app/
+
+# Copy source code
+COPY frontend/src /app/src
+COPY frontend/public /app/public
+
 # Lint the application
 RUN npm run lint
-
-# Copy the rest of the application code
-COPY frontend/ /app/
 
 # Build the Next.js application
 RUN npm run build
