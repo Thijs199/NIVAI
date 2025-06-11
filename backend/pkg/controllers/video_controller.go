@@ -22,101 +22,105 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var (
-	// pythonApiBaseUrl and netClient are also defined in analytics_controller.go
-	// Consider moving to a shared package or initializing them in a common place (e.g., main.go and pass down)
-	// For this subtask, we define them here as well.
-	pythonApiBaseUrl_vc string // Suffix _vc to avoid conflict if they were truly global and this file was part of same build in a flat way
-	netClient_vc        *http.Client
-)
-
-func init() {
-	// This init function will run for this package.
-	// If analytics_controller also has an init, both will run.
-	pythonApiBaseUrl_vc = os.Getenv("PYTHON_API_URL")
-	if pythonApiBaseUrl_vc == "" {
-		pythonApiBaseUrl_vc = "http://localhost:8081" // Default for local development
-		log.Println("PYTHON_API_URL not set for video_controller, using default:", pythonApiBaseUrl_vc)
-	} else {
-		log.Println("PYTHON_API_URL for video_controller:", pythonApiBaseUrl_vc)
-	}
-	netClient_vc = &http.Client{Timeout: time.Second * 20} // Increased timeout for potential processing trigger
-}
-
-/**
- * VideoController manages HTTP requests related to video resources.
- * Handles CRUD operations and specialized video-related endpoints.
- */
+// VideoController manages HTTP requests related to video resources.
 type VideoController struct {
-	videoRepo      models.VideoRepository
-	videoService   services.VideoService
-	storageService services.StorageService
+	videoService     services.VideoService
+	storageService   services.StorageService
+	PythonApiBaseUrl string
+	HttpClient       *http.Client
 }
 
-/**
- * NewVideoController creates a new controller for video-related endpoints.
- *
- * @param videoRepo The repository for video data operations
- * @param storageService The service for file storage operations
- * @return A new video controller instance
- */
-func NewVideoController(videoRepo models.VideoRepository, storageService services.StorageService) *VideoController {
-	// Create VideoService with the video repository and storage service
-	videoService := services.NewVideoService(videoRepo, storageService)
-
+// NewVideoController creates a new controller for video-related endpoints.
+func NewVideoController(vs services.VideoService, ss services.StorageService, pythonApiBaseUrl string, client *http.Client) *VideoController {
+	if pythonApiBaseUrl == "" {
+		envURL := os.Getenv("PYTHON_API_URL")
+		if envURL != "" {
+			pythonApiBaseUrl = envURL
+		} else {
+			pythonApiBaseUrl = "http://localhost:8081" // Default
+		}
+		log.Println("Using Python API URL for VideoController:", pythonApiBaseUrl)
+	}
+	if client == nil {
+		client = &http.Client{Timeout: time.Second * 20} // Or a more specific timeout for video processing calls
+	}
 	return &VideoController{
-		videoRepo:      videoRepo,
-		videoService:   videoService,
-		storageService: storageService,
+		videoService:     vs,
+		storageService:   ss,
+		PythonApiBaseUrl: pythonApiBaseUrl,
+		HttpClient:       client,
 	}
 }
+
+// callPythonProcessMatchAPI triggers the Python API for match processing.
+func (vc *VideoController) callPythonProcessMatchAPI(videoID, trackingPath, eventPath string) {
+	// Body will be updated in Stage 2
+	pyApiReqBody := map[string]string{
+		"tracking_data_path": trackingPath, // Ensure these are accessible by Python API
+		"event_data_path":    eventPath,
+		"match_id":           videoID,
+	}
+	jsonReqBody, err := json.Marshal(pyApiReqBody)
+	if err != nil {
+		log.Printf("Error marshalling Python API request body for video %s: %v", videoID, err)
+		return
+	}
+
+	pyProcessUrl := fmt.Sprintf("%s/process-match", vc.PythonApiBaseUrl) // Will use vc.
+	log.Printf("Calling Python API to process match %s: %s with body %s", videoID, pyProcessUrl, string(jsonReqBody))
+
+	resp, postErr := vc.HttpClient.Post(pyProcessUrl, "application/json", bytes.NewBuffer(jsonReqBody)) // Will use vc.
+	if postErr != nil {
+		log.Printf("Error calling Python API /process-match for video %s: %v", videoID, postErr)
+	} else {
+		defer resp.Body.Close()
+		respBodyBytes, _ := io.ReadAll(resp.Body)
+		log.Printf("Python API /process-match response for video %s: Status: %s, Body: %s", videoID, resp.Status, string(respBodyBytes))
+		if resp.StatusCode >= 300 {
+			log.Printf("Python API /process-match returned non-success status for video %s: %s", videoID, resp.Status)
+		} else {
+			log.Printf("Python API /process-match successfully triggered for video %s.", videoID)
+		}
+	}
+}
+
 
 // Helper function to save a single uploaded file
-func (c *VideoController) saveUploadedFile(
+func (vc *VideoController) saveUploadedFile( // Renamed c to vc for consistency
 	file multipart.File,
 	header *multipart.FileHeader,
 	storageDir string,
 	baseFilename string,
-	fileTypeIdentifier string, // e.g., "video", "tracking", "events"
+	fileTypeIdentifier string,
 ) (string, int64, error) {
+	// Body will remain the same for now, using vc.storageService
 	if file == nil || header == nil {
 		return "", 0, fmt.Errorf("%s file is missing", fileTypeIdentifier)
 	}
 
 	originalFilename := header.Filename
 	fileExt := filepath.Ext(originalFilename)
-	// For tracking/event files, instructions suggest specific extensions like _tracking.gzip.
-	// For now, let's use a generic approach or adapt if specific naming is required.
-	// The subtask suggests videoID + "_tracking.gzip" etc. Let's use baseFilename which will be videoID.
 	var storageFilename string
 	if fileTypeIdentifier == "tracking" {
-		storageFilename = baseFilename + "_tracking.gzip" // Assuming content is gzipped by client or this is just a name
+		storageFilename = baseFilename + "_tracking.gzip"
 	} else if fileTypeIdentifier == "events" {
 		storageFilename = baseFilename + "_events.gzip"
-	} else { // video
+	} else {
 		storageFilename = baseFilename + fileExt
 	}
 
 	destPath := filepath.Join(storageDir, storageFilename)
 
-	uploadInfo, err := c.storageService.UploadFile(file, destPath)
+	uploadInfo, err := vc.storageService.UploadFile(file, destPath) // Renamed c to vc
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to upload %s file to %s: %w", fileTypeIdentifier, destPath, err)
 	}
 	return uploadInfo.Path, uploadInfo.Size, nil
 }
 
-/**
- * UploadVideo handles the video, tracking, and event file upload process.
- * Accepts multipart form data, stores the files, and triggers Python API processing.
- * Handles the POST /api/v1/videos endpoint.
- *
- * @param w The HTTP response writer
- * @param r The HTTP request
- */
-func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
-	// Limit the request body size (e.g., 500MB for video + other files)
-	// Increased from 100MB to accommodate potentially larger tracking/event files alongside video.
+// UploadVideo handles the video, tracking, and event file upload process.
+func (vc *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) { // Renamed c to vc
+	// Limit the request body size
 	maxUploadSize := int64(500 << 20) // 500 MB
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
@@ -175,31 +179,34 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	videoID := uuid.New().String()
 	storagePath := filepath.Join("videos", videoID[0:2], videoID[2:4], videoID)
 
+	// vc.storageService.CreateDirectory was removed as it's not in the StorageService interface.
+	// The UploadFile method of the storage service will be responsible for handling paths.
+
 	var videoDestPath string
 	var videoSize int64
 	var errSave error
 
 	if videoFile != nil {
-		videoDestPath, videoSize, errSave = c.saveUploadedFile(videoFile, videoHeader, storagePath, videoID, "video")
+		videoDestPath, videoSize, errSave = vc.saveUploadedFile(videoFile, videoHeader, storagePath, videoID, "video")
 		if errSave != nil {
 			http.Error(w, errSave.Error(), http.StatusInternalServerError)
 			return // Early exit on critical file save error
 		}
 	}
 
-	trackingDestPath, _, errSave := c.saveUploadedFile(trackingFile, trackingHeader, storagePath, videoID, "tracking")
+	trackingDestPath, _, errSave := vc.saveUploadedFile(trackingFile, trackingHeader, storagePath, videoID, "tracking")
 	if errSave != nil {
 		// Attempt to cleanup video file if tracking save fails
-		if videoDestPath != "" { c.storageService.DeleteFile(videoDestPath) }
+		if videoDestPath != "" { vc.storageService.DeleteFile(videoDestPath) }
 		http.Error(w, errSave.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	eventDestPath, _, errSave := c.saveUploadedFile(eventFile, eventHeader, storagePath, videoID, "events")
+	eventDestPath, _, errSave := vc.saveUploadedFile(eventFile, eventHeader, storagePath, videoID, "events")
 	if errSave != nil {
 		// Attempt to cleanup video and tracking files if event save fails
-		if videoDestPath != "" { c.storageService.DeleteFile(videoDestPath) }
-		c.storageService.DeleteFile(trackingDestPath) // trackingDestPath would be valid here
+		if videoDestPath != "" { vc.storageService.DeleteFile(videoDestPath) }
+		vc.storageService.DeleteFile(trackingDestPath) // trackingDestPath would be valid here
 		http.Error(w, errSave.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -257,13 +264,13 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	// Let's assume there's a method like CreateVideo in VideoService that handles this.
 	// If VideoService is tightly coupled to a DB via a repository, that's where it should go.
 
-	savedMatchData, err := c.videoService.CreateVideoEntry(videoMetadata)
+	savedMatchData, err := vc.videoService.CreateVideoEntry(videoMetadata)
 	if err != nil {
 		log.Printf("Error saving video/match metadata for ID %s: %v", videoID, err)
 		// Attempt to clean up uploaded files if metadata saving fails
-		if videoDestPath != "" { c.storageService.DeleteFile(videoDestPath) }
-		if trackingDestPath != "" { c.storageService.DeleteFile(trackingDestPath) }
-		if eventDestPath != "" { c.storageService.DeleteFile(eventDestPath) }
+		if videoDestPath != "" { vc.storageService.DeleteFile(videoDestPath) }
+		if trackingDestPath != "" { vc.storageService.DeleteFile(trackingDestPath) }
+		if eventDestPath != "" { vc.storageService.DeleteFile(eventDestPath) }
 		http.Error(w, "Failed to save video/match metadata: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -282,39 +289,11 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	// Convert paths to absolute if they are not already, assuming storageService provides paths relative to some root
     // that might not be the same for the Python API.
     // This is a placeholder for actual path resolution logic needed for your deployment.
-    absTrackingPath := trackingDestPath // Placeholder: c.storageService.GetAbsolutePath(trackingDestPath)
-    absEventPath := eventDestPath       // Placeholder: c.storageService.GetAbsolutePath(eventDestPath)
+    absTrackingPath := trackingDestPath // Placeholder: vc.storageService.GetAbsolutePath(trackingDestPath)
+    absEventPath := eventDestPath       // Placeholder: vc.storageService.GetAbsolutePath(eventDestPath)
 
-
-	pyApiReqBody := map[string]string{
-		"tracking_data_path": absTrackingPath,
-		"event_data_path":    absEventPath,
-		"match_id":           videoID,
-	}
-	jsonReqBody, err := json.Marshal(pyApiReqBody)
-	if err != nil {
-		log.Printf("Error marshalling Python API request body for video %s: %v", videoID, err)
-		// Don't fail the upload, but log this. Analytics processing might need manual trigger.
-	} else {
-		pyProcessUrl := fmt.Sprintf("%s/process-match", pythonApiBaseUrl_vc)
-		log.Printf("Calling Python API to process match %s: %s with body %s", videoID, pyProcessUrl, string(jsonReqBody))
-
-		resp, postErr := netClient_vc.Post(pyProcessUrl, "application/json", bytes.NewBuffer(jsonReqBody))
-		if postErr != nil {
-			log.Printf("Error calling Python API /process-match for video %s: %v", videoID, postErr)
-		} else {
-			defer resp.Body.Close()
-			respBodyBytes, _ := io.ReadAll(resp.Body) // Read body for logging
-			log.Printf("Python API /process-match response for video %s: Status: %s, Body: %s", videoID, resp.Status, string(respBodyBytes))
-			if resp.StatusCode >= 300 { // Non-2xx response
-				log.Printf("Python API /process-match returned non-success status for video %s: %s", videoID, resp.Status)
-				// Potentially update videoMetadata.ProcessingState to "analytics_failed" or similar
-			} else {
-				log.Printf("Python API /process-match successfully triggered for video %s.", videoID)
-				// Potentially update videoMetadata.ProcessingState to "analytics_processing"
-			}
-		}
-	}
+	// Directly call the method; marshaling and error handling are inside callPythonProcessMatchAPI
+	vc.callPythonProcessMatchAPI(videoID, absTrackingPath, absEventPath)
 
 	// Return minimal info about the uploaded files, primarily the ID.
 	// The client can then use other endpoints to get full metadata if needed.
@@ -345,7 +324,7 @@ func (c *VideoController) UploadVideo(w http.ResponseWriter, r *http.Request) {
  * @param w The HTTP response writer
  * @param r The HTTP request
  */
-func (c *VideoController) GetVideo(w http.ResponseWriter, r *http.Request) {
+func (vc *VideoController) GetVideo(w http.ResponseWriter, r *http.Request) { // Renamed c to vc
 	// Extract video ID from URL path
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
@@ -355,9 +334,9 @@ func (c *VideoController) GetVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retrieve video from service
-	video, err := c.videoService.GetVideoByID(id)
+	video, err := vc.videoService.GetVideoByID(id) // Renamed c to vc
 	if err != nil {
-		if errors.Is(err, services.ErrVideoNotFound) {
+		if errors.Is(err, services.ErrVideoNotFound) { // Assuming services exports this error
 			http.Error(w, "Video not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Failed to retrieve video", http.StatusInternalServerError)
@@ -379,7 +358,7 @@ func (c *VideoController) GetVideo(w http.ResponseWriter, r *http.Request) {
  * @param w The HTTP response writer
  * @param r The HTTP request
  */
-func (c *VideoController) ListVideos(w http.ResponseWriter, r *http.Request) {
+func (vc *VideoController) ListVideos(w http.ResponseWriter, r *http.Request) { // Renamed c to vc
 	// Parse pagination parameters
 	limit, offset := parsePaginationParams(r)
 
@@ -387,7 +366,7 @@ func (c *VideoController) ListVideos(w http.ResponseWriter, r *http.Request) {
 	filters := parseVideoFilters(r)
 
 	// Retrieve videos using service
-	videos, err := c.videoService.ListVideos(limit, offset, filters)
+	videos, err := vc.videoService.ListVideos(limit, offset, filters) // Renamed c to vc
 	if err != nil {
 		http.Error(w, "Failed to retrieve videos", http.StatusInternalServerError)
 		return
@@ -408,7 +387,7 @@ func (c *VideoController) ListVideos(w http.ResponseWriter, r *http.Request) {
  * @param w The HTTP response writer
  * @param r The HTTP request
  */
-func (c *VideoController) DeleteVideo(w http.ResponseWriter, r *http.Request) {
+func (vc *VideoController) DeleteVideo(w http.ResponseWriter, r *http.Request) { // Renamed c to vc
 	// Extract video ID from URL path
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
@@ -418,9 +397,9 @@ func (c *VideoController) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get video metadata first to know the file path
-	video, err := c.videoService.GetVideoByID(id)
+	video, err := vc.videoService.GetVideoByID(id) // Renamed c to vc
 	if err != nil {
-		if errors.Is(err, services.ErrVideoNotFound) {
+		if errors.Is(err, services.ErrVideoNotFound) { // Assuming services exports this error
 			http.Error(w, "Video not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Failed to retrieve video metadata", http.StatusInternalServerError)
@@ -430,24 +409,24 @@ func (c *VideoController) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the actual file first (video, tracking, events)
 	if video.FilePath != "" {
-		if err := c.storageService.DeleteFile(video.FilePath); err != nil && !os.IsNotExist(err) {
+		if err := vc.storageService.DeleteFile(video.FilePath); err != nil && !os.IsNotExist(err) { // Renamed c to vc
 			log.Printf("Warning: Failed to delete video file %s: %s", video.FilePath, err.Error())
 		}
 	}
 	if video.TrackingPath != "" {
-		if err := c.storageService.DeleteFile(video.TrackingPath); err != nil && !os.IsNotExist(err) {
+		if err := vc.storageService.DeleteFile(video.TrackingPath); err != nil && !os.IsNotExist(err) { // Renamed c to vc
 			log.Printf("Warning: Failed to delete tracking file %s: %s", video.TrackingPath, err.Error())
 		}
 	}
 	if video.EventFilePath != "" {
-		if err := c.storageService.DeleteFile(video.EventFilePath); err != nil && !os.IsNotExist(err) {
+		if err := vc.storageService.DeleteFile(video.EventFilePath); err != nil && !os.IsNotExist(err) { // Renamed c to vc
 			log.Printf("Warning: Failed to delete event file %s: %s", video.EventFilePath, err.Error())
 		}
 	}
 
 
 	// Delete video metadata
-	if err := c.videoService.DeleteVideo(id); err != nil {
+	if err := vc.videoService.DeleteVideo(id); err != nil { // Renamed c to vc
 		http.Error(w, "Failed to delete video metadata", http.StatusInternalServerError)
 		return
 	}

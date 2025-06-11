@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"mime/multipart"
 	"strings"
 	"testing"
 	"time"
 
 	"nivai/backend/pkg/controllers" // Adjust if necessary
 	"nivai/backend/pkg/models"
-	"nivai/backend/pkg/services"   // For VideoService interface
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock" // For mocking services
@@ -58,6 +58,35 @@ func (m *MockVideoService) CreateVideo(video *models.Video) error {
     return args.Error(0)
 }
 
+func (m *MockVideoService) CreateVideoEntry(video *models.Video) (*models.Video, error) {
+	args := m.Called(video)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Video), args.Error(1)
+}
+
+func (m *MockVideoService) GetVideoStreamURL(id string) (string, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return "", args.Error(1)
+	}
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockVideoService) ProcessVideo(id string) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *MockVideoService) UploadVideo(videoFile multipart.File, videoFileHeader *multipart.FileHeader, videoDetails *models.Video) (*models.Video, error) {
+	args := m.Called(videoFile, videoFileHeader, videoDetails)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Video), args.Error(1)
+}
+
 
 // mockPythonStatusApi is a helper for match status checks
 func mockPythonStatusApi(t *testing.T, statusResponses map[string]controllers.PythonStatusResponse) *httptest.Server {
@@ -86,9 +115,6 @@ func mockPythonStatusApi(t *testing.T, statusResponses map[string]controllers.Py
 
 
 func TestListMatches(t *testing.T) {
-	mockVideoSvc := new(MockVideoService)
-	matchController := controllers.NewMatchController(mockVideoSvc) // Inject mock service
-
 	// Default videos to be returned by the mock service
 	sampleVideos := []*models.Video{
 		{ID: "match1", Title: "Match 1", CreatedAt: time.Now().Add(-24 * time.Hour), HomeTeam: "Team A", AwayTeam: "Team B"},
@@ -97,6 +123,8 @@ func TestListMatches(t *testing.T) {
 	}
 
 	t.Run("Successful listing with various analytics statuses", func(t *testing.T) {
+		mockVideoSvc := new(MockVideoService) // Moved instantiation to the top of the sub-test
+
 		// Setup mock VideoService behavior
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(sampleVideos, nil).Once()
 
@@ -108,16 +136,16 @@ func TestListMatches(t *testing.T) {
 		}
 		mockApi := mockPythonStatusApi(t, statusResps)
 		defer mockApi.Close()
-		t.Setenv("PYTHON_API_URL", mockApi.URL)
-		// controllers.ReinitializeClientForMatchControllerTesting() // Hypothetical
+
+		// matchController now uses the locally defined mockVideoSvc
+		matchController := controllers.NewMatchController(mockVideoSvc, mockApi.URL, mockApi.Client())
+
+		// This mock expectation was duplicated, removing one.
+		// The one at the top of the sub-test is correct.
+		// mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(sampleVideos, nil).Once()
 
 		req := httptest.NewRequest("GET", "/api/v1/matches", nil)
 		rr := httptest.NewRecorder()
-
-		// Setup router if ListMatches uses mux.Vars or other mux features (not in this case)
-		// http.HandlerFunc(matchController.ListMatches).ServeHTTP(rr, req) is fine here
-		// However, if routes.go adds middleware via router, testing via router is more accurate.
-		// For now, direct handler call.
 		http.HandlerFunc(matchController.ListMatches).ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -146,6 +174,9 @@ func TestListMatches(t *testing.T) {
 	})
 
 	t.Run("VideoService returns an error", func(t *testing.T) {
+		mockVideoSvc := new(MockVideoService)
+        matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
+
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(nil, fmt.Errorf("database error")).Once()
 
 		req := httptest.NewRequest("GET", "/api/v1/matches", nil)
@@ -158,6 +189,9 @@ func TestListMatches(t *testing.T) {
 	})
 
 	t.Run("Empty list of matches", func(t *testing.T) {
+		mockVideoSvc := new(MockVideoService)
+        matchController := controllers.NewMatchController(mockVideoSvc, "", nil)
+
 		mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return([]*models.Video{}, nil).Once()
 
 		// No need to mock Python API if no videos are returned.
@@ -178,12 +212,14 @@ func TestListMatches(t *testing.T) {
             {ID: "ok_match", Title: "OK Match", CreatedAt: time.Now()},
             {ID: "err_match", Title: "Error Match", CreatedAt: time.Now()},
         }
-        mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(videosWithOneProblematic, nil).Once()
+        // Removed incorrectly scoped mockVideoSvc.On("ListVideos",...) call from here
 
         statusResps := map[string]controllers.PythonStatusResponse{
             "ok_match": {Status: "processed"},
             // "err_match" will cause an error in the mock server if not defined, or we can make mock return error
         }
+
+        mockVideoSvc := new(MockVideoService) // Ensure mockVideoSvc is defined in this sub-test's scope
 
         // Mock Python API to simulate an error for one match
         mockApi := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -197,8 +233,11 @@ func TestListMatches(t *testing.T) {
             json.NewEncoder(w).Encode(statusResp)
         }))
         defer mockApi.Close()
-        t.Setenv("PYTHON_API_URL", mockApi.URL)
-        // controllers.ReinitializeClientForMatchControllerTesting() // Hypothetical
+
+        matchController := controllers.NewMatchController(mockVideoSvc, mockApi.URL, mockApi.Client())
+
+        mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string")).Return(videosWithOneProblematic, nil).Once()
+
 
         req := httptest.NewRequest("GET", "/api/v1/matches", nil)
         rr := httptest.NewRecorder()
@@ -269,29 +308,4 @@ func TestListMatches(t *testing.T) {
 //
 // One detail: `mockVideoSvc.On("ListVideos", 20, 0, mock.AnythingOfType("map[string]string"))` has hardcoded limit/offset.
 // This should match what `ListMatches` actually passes (which are current defaults).
-// This is fine as `ListMatches` itself uses these defaults currently.The `match_controller_test.go` file has been created.
-
-**Key aspects of this test file:**
-
-*   **Mock `VideoService`:**
-    *   A `MockVideoService` struct is defined using `testify/mock`.
-    *   It mocks all methods of the `services.VideoService` interface (`GetVideoByID`, `ListVideos`, `SaveVideoMetadata`, `DeleteVideo`, `CreateVideo`).
-*   **Mock Python API for Status (`mockPythonStatusApi`):**
-    *   A helper function creates an `httptest.Server` to mock the Python API's `/match/{id}/status` endpoint.
-    *   It's configurable to return different statuses for different `matchID`s.
-*   **`TestListMatches` Function:**
-    *   **Setup:** Instantiates `MatchController` with the `MockVideoService`.
-    *   **Successful Listing:**
-        *   Mocks `videoService.ListVideos` to return a sample list of videos.
-        *   Sets up the `mockPythonStatusApi` to return specific analytics statuses for these videos.
-        *   Uses `t.Setenv("PYTHON_API_URL", mockApi.URL)` to direct the controller's HTTP client to the mock server (with the same caveats about `init()` functions as in `analytics_controller_test.go`).
-        *   Calls the `ListMatches` handler.
-        *   Asserts `http.StatusOK` and verifies that the response JSON correctly combines video data with the fetched analytics statuses.
-        *   Uses `mockVideoSvc.AssertExpectations(t)` to ensure `ListVideos` was called as expected.
-    *   **VideoService Error:** Tests the case where `videoService.ListVideos` returns an error, asserting `http.StatusInternalServerError`.
-    *   **Empty List of Matches:** Tests the case where `videoService.ListVideos` returns an empty list, asserting `http.StatusOK` and an empty JSON array in the response.
-    *   **Python API Errors for Some Matches:** Tests the scenario where the Python API returns errors for some match statuses, ensuring the main request still succeeds but individual matches reflect an error status for analytics.
-*   **Concurrency:** The tests implicitly cover the concurrent fetching of statuses by `ListMatches` by checking the final aggregated result.
-*   **Testability Notes:** Comments in the generated code reiterate the challenges and assumptions related to testing controllers that use package-level variables set by `init()` and `t.Setenv`.
-
-Next, I will create `backend/pkg/controllers/video_controller_test.go`. This is the most complex one due to file uploads and multiple service interactions.
+// This is fine as `ListMatches` itself uses these defaults currently.

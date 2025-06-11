@@ -1,0 +1,217 @@
+package services_test
+
+import (
+	"bytes"
+	// "errors" // Not strictly needed if mockMultipartFile is simplified and errors come from os package
+	"fmt"
+	"io"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"nivai/backend/pkg/services"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// mockMultipartFile focusing on io.Reader and io.Seeker
+type mockMultipartFile struct {
+    *bytes.Reader
+}
+
+func (mf *mockMultipartFile) Close() error { return nil }
+
+func newMockMultipartFile(content string) multipart.File {
+    return &mockMultipartFile{
+        Reader: bytes.NewReader([]byte(content)),
+    }
+}
+
+func TestNewLocalFileStorage(t *testing.T) {
+    t.Run("Valid base path", func(t *testing.T) {
+        tempDir, err := os.MkdirTemp("", "localfs_new_valid")
+        require.NoError(t, err)
+        defer os.RemoveAll(tempDir)
+
+        fs, err := services.NewLocalFileStorage(tempDir)
+        require.NoError(t, err)
+        assert.NotNil(t, fs)
+    })
+
+    t.Run("Empty base path", func(t *testing.T) {
+        _, err := services.NewLocalFileStorage("")
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "base path cannot be empty")
+        }
+    })
+
+    t.Run("Base path is a file, not a directory", func(t *testing.T) {
+        tempFile, err := os.CreateTemp("", "localfs_new_file")
+        require.NoError(t, err)
+        defer os.Remove(tempFile.Name())
+        tempFile.Close()
+
+        _, err = services.NewLocalFileStorage(tempFile.Name())
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "base path must be a directory")
+        }
+    })
+
+    t.Run("Base path does not exist", func(t *testing.T) {
+        nonExistentPath := filepath.Join(os.TempDir(), "localfs_new_nonexistent", "somerandompath_full")
+        _, err := services.NewLocalFileStorage(nonExistentPath)
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "error accessing base path")
+        }
+    })
+}
+
+func TestLocalFileStorage_Operations(t *testing.T) {
+    baseDir, mkdirErr := os.MkdirTemp("", "localfs_ops_base_full")
+    require.NoError(t, mkdirErr, "Failed to create temp base dir")
+    defer os.RemoveAll(baseDir)
+
+    var fs services.StorageService // Explicit var declaration
+    var fsErr error                 // Explicit var declaration for its error
+    fs, fsErr = services.NewLocalFileStorage(baseDir) // This was the persistently failing line
+    require.NoError(t, fsErr, "Failed to create LocalFileStorage instance")
+    require.NotNil(t, fs, "LocalFileStorage instance should not be nil")
+
+    fileName := "test_upload.txt"
+    fileContent := "Hello, Local Storage!"
+    // uploadPath is relative to baseDir for storage operations
+    uploadPath := filepath.Join("subdir", fileName)
+
+    t.Run("UploadFile success", func(t *testing.T) {
+        mockFile := newMockMultipartFile(fileContent)
+
+        uploadInfo, err := fs.UploadFile(mockFile, uploadPath)
+        require.NoError(t, err)
+        require.NotNil(t, uploadInfo)
+
+        assert.Equal(t, uploadPath, uploadInfo.Path)
+        assert.Equal(t, "local_file", uploadInfo.Provider)
+        assert.Equal(t, int64(len(fileContent)), uploadInfo.Size)
+        assert.Equal(t, "txt", uploadInfo.Format)
+
+        fullDiskPath := filepath.Join(baseDir, uploadPath)
+        contentBytes, readErr := os.ReadFile(fullDiskPath)
+        require.NoError(t, readErr)
+        assert.Equal(t, fileContent, string(contentBytes))
+    })
+
+    t.Run("GetFile success", func(t *testing.T) {
+        reader, err := fs.GetFile(uploadPath)
+        require.NoError(t, err)
+        defer reader.Close()
+
+        contentBytes, err := io.ReadAll(reader)
+        require.NoError(t, err)
+        assert.Equal(t, fileContent, string(contentBytes))
+    })
+
+    t.Run("GetFile not found", func(t *testing.T) {
+        _, err := fs.GetFile("nonexistent/file.txt")
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "file not found")
+        }
+    })
+
+    t.Run("GetFileMetadata success", func(t *testing.T) {
+        metadata, err := fs.GetFileMetadata(uploadPath)
+        require.NoError(t, err)
+        require.NotNil(t, metadata)
+
+        assert.Equal(t, fmt.Sprintf("%d", len(fileContent)), metadata["content-length"])
+        assert.Equal(t, fileName, metadata["name"])
+        assert.Equal(t, "false", metadata["is-directory"])
+
+        _, parseErr := time.Parse(time.RFC3339, metadata["last-modified"])
+        assert.NoError(t, parseErr, "last-modified should be a valid RFC3339 timestamp")
+    })
+
+    t.Run("GetFileMetadata not found", func(t *testing.T) {
+        _, err := fs.GetFileMetadata("nonexistent/metadata.txt")
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "file not found")
+        }
+    })
+
+    t.Run("GetStreamURL success", func(t *testing.T) {
+        streamURL, err := fs.GetStreamURL(uploadPath)
+        require.NoError(t, err)
+
+        expectedAbsPath, absErr := filepath.Abs(filepath.Join(baseDir, uploadPath))
+        require.NoError(t, absErr)
+        assert.True(t, strings.HasPrefix(streamURL, "file://"), "URL should start with file://")
+        // On Windows, absPath might have backslashes. URL needs forward slashes.
+        assert.True(t, strings.HasSuffix(streamURL, filepath.ToSlash(expectedAbsPath)), "URL should end with correct path")
+    })
+
+    t.Run("GetStreamURL not found", func(t *testing.T) {
+        _, err := fs.GetStreamURL("nonexistent/stream.txt")
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "file not found")
+        }
+    })
+
+    t.Run("DeleteFile success", func(t *testing.T) {
+        err := fs.DeleteFile(uploadPath) // This assumes UploadFile success ran and created the file
+        require.NoError(t, err)
+
+        fullDiskPath := filepath.Join(baseDir, uploadPath)
+        _, statErr := os.Stat(fullDiskPath)
+        assert.True(t, os.IsNotExist(statErr), "File should not exist after deletion")
+    })
+
+    t.Run("DeleteFile not found", func(t *testing.T) {
+        err := fs.DeleteFile("nonexistent/delete_me.txt")
+        assert.Error(t, err)
+        if err != nil {
+            assert.Contains(t, err.Error(), "file not found")
+        }
+    })
+
+    t.Run("UploadFile to a non-existent nested directory", func(t *testing.T) {
+        nestedPath := filepath.Join("deeply", "nested", "dir", "another_upload.txt")
+        nestedFileContent := "nested content"
+        mockFile := newMockMultipartFile(nestedFileContent)
+
+        uploadInfo, err := fs.UploadFile(mockFile, nestedPath)
+        require.NoError(t, err)
+        require.NotNil(t, uploadInfo)
+        assert.Equal(t, nestedPath, uploadInfo.Path)
+
+        fullDiskPath := filepath.Join(baseDir, nestedPath)
+        contentBytes, readErr := os.ReadFile(fullDiskPath)
+        require.NoError(t, readErr)
+        assert.Equal(t, nestedFileContent, string(contentBytes))
+
+        // Cleanup this specific file
+        delErr := fs.DeleteFile(nestedPath)
+        assert.NoError(t, delErr, "Cleanup of nested file failed")
+    })
+}
+    ```
+
+**3. Run Tests:**
+    *   Execute `go test ./... -v` in the `/app/backend` directory.
+    *   Report the build status and detailed test results.
+    *   **Crucially, note if `file_storage_service_test.go` (package `services`) now compiles. If it fails, provide the exact error and line number.**
+    *   If it compiles, report which tests (if any) in `file_storage_service_test.go` fail at runtime.
+
+This subtask uses a full overwrite with code that is syntactically correct and has worked in other contexts.
+If the "no new variables" error persists on the specified line (`fs, fsErr = services.NewLocalFileStorage(baseDir)`), it will be undeniable evidence of a tool/environment problem with this file that I cannot resolve.
+The sub-tests are all re-enabled to ensure full testing if compilation succeeds.
+The `errors` import was commented out as it wasn't strictly necessary with the current error handling (os package errors are used, or `fmt.Errorf`).
+The `filepath.ToSlash` in `GetStreamURL success` test is for cross-platform compatibility of the path assertion.

@@ -2,7 +2,6 @@ package routes
 
 import (
 	"net/http"
-	"net/http"
 	"nivai/backend/pkg/config"
 	"nivai/backend/pkg/controllers"
 	"nivai/backend/pkg/middleware"
@@ -31,11 +30,16 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	router.Use(middleware.RequestID)
 
 	// Create controller instances with dependencies
-	videoController := controllers.NewVideoController(videoRepo, storage)
+	// First, create the services that controllers depend on
+	videoServiceInstance := services.NewVideoService(videoRepo, storage)
+
+	// Now, create controllers, injecting dependencies
+	videoController := controllers.NewVideoController(videoServiceInstance, storage, "", nil) // Updated constructor
 	// VideoService is needed for MatchController.
-	videoServiceForMatch := services.NewVideoService(videoRepo, storage)
-	matchController := controllers.NewMatchController(videoServiceForMatch)
+	// videoServiceForMatch := services.NewVideoService(videoRepo, storage) // This is same as videoServiceInstance
+	matchController := controllers.NewMatchController(videoServiceInstance, "", nil) // Updated constructor, use same videoServiceInstance
 	playerController := controllers.NewPlayerController()
+	analyticsController := controllers.NewAnalyticsController("", nil) // Using new constructor
 
 
 	// API version prefix
@@ -52,8 +56,8 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	// User endpoints - requires authentication
 	userRouter := apiRouter.PathPrefix("/users").Subrouter()
 	userRouter.Use(middleware.Authenticate)
-	userRouter.HandleFunc("", controllers.GetUsers).Methods("GET")
-	userRouter.HandleFunc("/{id}", controllers.GetUser).Methods("GET")
+	// userRouter.HandleFunc("", controllers.GetUsers).Methods("GET")
+	// userRouter.HandleFunc("/{id}", controllers.GetUser).Methods("GET")
 
 	// Video endpoints - requires authentication
 	videoRouter := apiRouter.PathPrefix("/videos").Subrouter()
@@ -66,9 +70,9 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	// Analytics endpoints - requires authentication
 	analyticsRouter := apiRouter.PathPrefix("/analytics").Subrouter()
 	analyticsRouter.Use(middleware.Authenticate)
-	analyticsRouter.HandleFunc("/matches/{id}", controllers.GetMatchAnalytics).Methods("GET")
-	analyticsRouter.HandleFunc("/players/{id}", controllers.GetPlayerAnalytics).Methods("GET") // Player details by ID
-	analyticsRouter.HandleFunc("/teams/{id}", controllers.GetTeamAnalytics).Methods("GET")
+	analyticsRouter.HandleFunc("/matches/{id}", analyticsController.GetMatchAnalytics).Methods("GET")
+	analyticsRouter.HandleFunc("/players/{id}", analyticsController.GetPlayerAnalytics).Methods("GET") // Player details by ID
+	analyticsRouter.HandleFunc("/teams/{id}", analyticsController.GetTeamAnalytics).Methods("GET")
 	analyticsRouter.HandleFunc("/players/image_search", playerController.SearchPlayerImage).Methods("GET") // Player image search by name
 
 	// Matches list endpoint - requires authentication
@@ -78,7 +82,12 @@ func SetupRoutes(cfg *config.Config, storage services.StorageService, videoRepo 
 	matchesRouter.HandleFunc("", matchController.ListMatches).Methods("GET")
 
 	// WebSocket endpoint for real-time updates
-	router.HandleFunc("/ws", controllers.WebSocketHandler)
+	wsHub := controllers.NewHub()
+	go wsHub.Run() // Start the hub's processing loop
+	// Use Handle since wsHub.ServeHTTP is an http.Handler method.
+	// Or if WebSocketHandler was kept as a function needing a hub: router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) { controllers.WebSocketHandler(wsHub, w, r) })
+	router.Handle("/ws", wsHub).Methods("GET")
+
 
 	return router
 }

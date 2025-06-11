@@ -53,10 +53,10 @@ def mock_path_exists(monkeypatch):
 # --- Tests for /process-match ---
 @patch('python_api.src.api.main._process_match_data_background', new_callable=MagicMock)
 def test_process_match_success(mock_bg_task, mock_path_exists):
-    mock_path_exists.return_value = True # Both tracking and event files exist
+    mock_path_exists.return_value = True
     payload = {
-        "tracking_data_path": "/fake/tracking.parquet",
-        "event_data_path": "/fake/events.parquet",
+        "tracking_data_path": "/fake/tracking.gzip", # Updated extension
+        "event_data_path": "/fake/events.gzip",   # Updated extension
         "match_id": "test_match_01"
     }
     response = client.post("/process-match", json=payload)
@@ -68,31 +68,47 @@ def test_process_match_success(mock_bg_task, mock_path_exists):
 
     mock_bg_task.assert_called_once_with(
         "test_match_01",
-        Path("/fake/tracking.parquet"),
-        Path("/fake/events.parquet")
+        Path("/fake/tracking.gzip"), # Updated extension
+        Path("/fake/events.gzip")   # Updated extension
     )
     assert "test_match_01" in processed_match_data_cache
     assert processed_match_data_cache["test_match_01"]["status"] == "pending"
 
 def test_process_match_missing_tracking_file(mock_path_exists):
-    mock_path_exists.side_effect = lambda p: str(p) == "/fake/events.parquet" # Only event file exists
+    def side_effect_func_missing_tracking(path_obj=None):
+        if path_obj is None:
+            return False
+        path_str = str(path_obj)
+        if path_str == "/fake/tracking.gzip": # Updated extension
+            return False
+        elif path_str == "/fake/events.gzip": # Updated extension
+            return True
+        return False
+    mock_path_exists.side_effect = side_effect_func_missing_tracking
     payload = {
-        "tracking_data_path": "/fake/tracking.parquet", # This one will "not exist"
-        "event_data_path": "/fake/events.parquet",
+        "tracking_data_path": "/fake/tracking.gzip", # Updated extension
+        "event_data_path": "/fake/events.gzip",   # Updated extension
     }
     response = client.post("/process-match", json=payload)
     assert response.status_code == 404
     assert "Tracking data file not found" in response.json()["detail"]
 
 def test_process_match_missing_event_file(mock_path_exists):
-    mock_path_exists.side_effect = lambda p: str(p) == "/fake/tracking.parquet" # Only tracking file exists
+    mock_path_exists.reset_mock(return_value=True, side_effect=None)
+
+    # Simulate that tracking.gzip exists and events.gzip does not
+    mock_path_exists.side_effect = [
+        True,  # First call to path.exists() (for tracking.gzip)
+        False  # Second call to path.exists() (for events.gzip)
+    ]
+
     payload = {
-        "tracking_data_path": "/fake/tracking.parquet",
-        "event_data_path": "/fake/events.parquet", # This one will "not exist"
+        "tracking_data_path": "/fake/tracking.gzip", # Ensure .gzip
+        "event_data_path": "/fake/events.gzip",   # Ensure .gzip
     }
     response = client.post("/process-match", json=payload)
-    assert response.status_code == 404
-    assert "Event data file not found" in response.json()["detail"]
+    assert response.status_code == 404  # Correctly indented
+    assert "Event data file not found" in response.json()["detail"] # Correctly indented
 
 def test_process_match_invalid_request_body():
     response = client.post("/process-match", json={"tracking_data_path": "path"}) # Missing event_data_path
@@ -104,8 +120,8 @@ def test_get_match_status_pending(mock_bg_task, mock_path_exists):
     mock_path_exists.return_value = True
     match_id = "test_status_pending"
     client.post("/process-match", json={
-        "tracking_data_path": "/fake/track.parquet",
-        "event_data_path": "/fake/event.parquet",
+        "tracking_data_path": "/fake/track.gzip",  # Updated extension
+        "event_data_path": "/fake/event.gzip", # Updated extension
         "match_id": match_id
     }) # This sets status to "pending"
 
@@ -157,25 +173,29 @@ def test_get_match_summary_non_existent():
     assert response.status_code == 404
 
 # --- Tests for /match/{match_id}/player/{player_id}/details ---
-@patch.object(stats_calculator, 'generate_player_time_series')
-def test_get_player_details_success(mock_generate_ts):
+@patch('python_api.src.api.main.generate_player_time_series') # Patched in main's namespace
+def test_get_player_details_success(mock_main_generate_ts): # Renamed mock argument
     match_id = "test_p_details_ok"
     player_id = "p1"
-    dummy_enriched_df = get_dummy_tracking_df()[get_dummy_tracking_df()['player_id'] == player_id]
+
     mock_ts_data = [{"timestamp_ms": 0, "speed_kmh": 5.0}]
-    mock_generate_ts.return_value = mock_ts_data
+    mock_main_generate_ts.return_value = mock_ts_data
+
+    cached_enriched_df = get_dummy_tracking_df().copy()
+    if 'speed_kmh' not in cached_enriched_df.columns: # ensure conceptual completeness
+        cached_enriched_df['speed_kmh'] = 0.0
 
     processed_match_data_cache[match_id] = {
         "status": "processed",
-        "enriched_tracking_df": get_dummy_tracking_df() # Full df for general lookup
+        "enriched_tracking_df": cached_enriched_df
     }
 
     response = client.get(f"/match/{match_id}/player/{player_id}/details")
     assert response.status_code == 200
     assert response.json() == {"match_id": match_id, "player_id": player_id, "time_series": mock_ts_data}
 
-    # Check that mock_generate_ts was called with the correct DataFrame slice
-    pd.testing.assert_frame_equal(mock_generate_ts.call_args[0][0], dummy_enriched_df, check_dtype=False)
+    expected_player_df_slice = cached_enriched_df[cached_enriched_df['player_id'] == player_id]
+    pd.testing.assert_frame_equal(mock_main_generate_ts.call_args[0][0], expected_player_df_slice, check_dtype=False)
 
 
 def test_get_player_details_player_not_found():
@@ -190,30 +210,45 @@ def test_get_player_details_player_not_found():
     assert "player id" in response.json()["detail"].lower() and "not found" in response.json()["detail"].lower()
 
 # --- Tests for /match/{match_id}/team/{team_id}/summary-over-time ---
-@patch.object(stats_calculator, 'generate_team_intervals')
-def test_get_team_summary_over_time_success(mock_generate_intervals):
+@patch('python_api.src.api.main.generate_team_intervals') # Patched in main's namespace
+def test_get_team_summary_over_time_success(mock_main_generate_intervals): # Renamed mock argument
     match_id = "test_t_intervals_ok"
     team_id = "tA"
-    # Simulate the DataFrame that would be filtered for team tA
-    team_df_tA = get_dummy_tracking_df()[get_dummy_tracking_df()['team_id'] == team_id]
 
-    mock_interval_data_list = [{"interval_start_time_s": 0, "total_distance_m": 500}]
-    # generate_team_intervals in main code returns a DataFrame.
-    # The endpoint then calls .to_dict(orient='records').
-    mock_generate_intervals.return_value = pd.DataFrame(mock_interval_data_list)
+    cached_enriched_df = get_dummy_tracking_df().copy()
+    # Add columns that enrich_tracking_data would add, and generate_team_intervals expects
+    if 'time_s' not in cached_enriched_df.columns:
+        cached_enriched_df['time_s'] = cached_enriched_df['timestamp_ms'] / 1000.0
+    if 'relative_time_s' not in cached_enriched_df.columns: # Added by enrich_tracking_data
+        cached_enriched_df['relative_time_s'] = cached_enriched_df.groupby('player_id', group_keys=False)['time_s'].transform(lambda x: x - x.min()) # Apply transformation
+    if 'distance_covered_m' not in cached_enriched_df.columns:
+        cached_enriched_df['distance_covered_m'] = 0.1
+    if 'speed_m_s' not in cached_enriched_df.columns:
+        cached_enriched_df['speed_m_s'] = 1.0
+    if 'speed_kmh' not in cached_enriched_df.columns:
+        cached_enriched_df['speed_kmh'] = cached_enriched_df['speed_m_s'] * 3.6
+    if 'is_running' not in cached_enriched_df.columns:
+        cached_enriched_df['is_running'] = cached_enriched_df['speed_kmh'] > 5.0 # Example threshold
+    if 'is_sprinting' not in cached_enriched_df.columns:
+        cached_enriched_df['is_sprinting'] = cached_enriched_df['speed_kmh'] > 7.0 # Example threshold
+    if 'is_high_intensity_running' not in cached_enriched_df.columns: # CRITICAL
+        cached_enriched_df['is_high_intensity_running'] = cached_enriched_df['speed_kmh'] > 6.0 # Example threshold
 
     processed_match_data_cache[match_id] = {
         "status": "processed",
-        "enriched_tracking_df": get_dummy_tracking_df(), # Full df
+        "enriched_tracking_df": cached_enriched_df,
         "player_to_team_map": {'p1': 'tA', 'p2': 'tB'}
     }
+
+    mock_interval_data_list = [{"interval_start_time_s": 0, "total_distance_m": 500}]
+    mock_main_generate_intervals.return_value = pd.DataFrame(mock_interval_data_list)
 
     response = client.get(f"/match/{match_id}/team/{team_id}/summary-over-time")
     assert response.status_code == 200
     assert response.json() == {"match_id": match_id, "team_id": team_id, "intervals": mock_interval_data_list}
 
-    # Check that mock_generate_intervals was called with the correct DataFrame slice for team tA
-    pd.testing.assert_frame_equal(mock_generate_intervals.call_args[0][0], team_df_tA, check_dtype=False)
+    expected_team_df_slice = cached_enriched_df[cached_enriched_df['team_id'] == team_id]
+    pd.testing.assert_frame_equal(mock_main_generate_intervals.call_args[0][0], expected_team_df_slice, check_dtype=False)
 
 
 def test_get_team_summary_over_time_team_not_found():
@@ -231,30 +266,31 @@ def test_get_team_summary_over_time_team_not_found():
 
 # --- Integration-style test for _process_match_data_background ---
 # This uses mocks for data_loader and stats_calculator functions to test the flow.
-@pytest.mark.asyncio # Requires pytest-asyncio if not using another async test runner like anyio from FastAPI
-@patch.object(data_loader, 'load_tracking_data')
-@patch.object(data_loader, 'load_event_data')
-@patch.object(stats_calculator, 'enrich_tracking_data')
-@patch.object(stats_calculator, 'generate_all_player_summaries')
-@patch.object(stats_calculator, 'generate_team_summaries')
+@pytest.mark.asyncio
+@patch('python_api.src.api.main.load_tracking_data')      # Patched in the correct module
+@patch('python_api.src.api.main.load_event_data')        # Patched in the correct module
+@patch('python_api.src.api.main.enrich_tracking_data')   # Patched in the correct module
+@patch('python_api.src.api.main.generate_all_player_summaries') # Patched in the correct module
+@patch('python_api.src.api.main.generate_team_summaries') # Patched in the correct module
 async def test_process_match_data_background_flow(
-    mock_gen_team_sum, mock_gen_player_sum, mock_enrich, mock_load_event, mock_load_tracking
+    mock_main_gen_team_sum, mock_main_gen_player_sum, mock_main_enrich, mock_main_load_event, mock_main_load_tracking
 ):
     match_id = "bg_test_match"
-    tracking_path = Path("/fake/tracking.parquet") # Path objects
-    event_path = Path("/fake/events.parquet")     # Path objects
+    tracking_path = Path("/fake/tracking.gzip") # Updated extension
+    event_path = Path("/fake/events.gzip")     # Updated extension
 
     dummy_tracking = get_dummy_tracking_df()
     dummy_events = get_dummy_event_df()
-    dummy_enriched = dummy_tracking.copy(); dummy_enriched['speed_kmh'] = 10.0
+    dummy_enriched = dummy_tracking.copy(); dummy_enriched['speed_kmh'] = 10.0 # enrich_tracking_data adds more
+    # For more accurate testing, dummy_enriched should fully mock the output of your actual enrich_tracking_data
     dummy_player_summaries = {"p1": {"total_distance_m": 120}}
     dummy_team_summaries = {"tA": {"total_distance_m": 120}}
 
-    mock_load_tracking.return_value = dummy_tracking
-    mock_load_event.return_value = dummy_events
-    mock_enrich.return_value = dummy_enriched
-    mock_gen_player_sum.return_value = dummy_player_summaries
-    mock_gen_team_sum.return_value = dummy_team_summaries
+    mock_main_load_tracking.return_value = dummy_tracking
+    mock_main_load_event.return_value = dummy_events
+    mock_main_enrich.return_value = dummy_enriched
+    mock_main_gen_player_sum.return_value = dummy_player_summaries
+    mock_main_gen_team_sum.return_value = dummy_team_summaries
 
     await _process_match_data_background(match_id, tracking_path, event_path)
 
@@ -264,35 +300,36 @@ async def test_process_match_data_background_flow(
     pd.testing.assert_frame_equal(cache_item["enriched_tracking_df"], dummy_enriched)
     assert cache_item["player_summaries"] == dummy_player_summaries
     assert cache_item["team_summaries"] == dummy_team_summaries
-    assert "player_to_team_map" in cache_item # Check existence, content depends on dummy_enriched
+    assert "player_to_team_map" in cache_item
 
-    mock_load_tracking.assert_called_once_with(tracking_path)
-    mock_load_event.assert_called_once_with(event_path)
-    # For DataFrames, assert_called_once_with checks object identity, not value.
-    # To check value: pd.testing.assert_frame_equal(mock_enrich.call_args[0][0], dummy_tracking)
-    mock_enrich.assert_called_once()
-    pd.testing.assert_frame_equal(mock_enrich.call_args[0][0], dummy_tracking)
+    mock_main_load_tracking.assert_called_once_with(tracking_path)
+    mock_main_load_event.assert_called_once_with(event_path)
+    mock_main_enrich.assert_called_once()
+    # Ensure DataFrame passed to enrich is the one from load_tracking_data
+    pd.testing.assert_frame_equal(mock_main_enrich.call_args[0][0], dummy_tracking)
 
-    mock_gen_player_sum.assert_called_once()
-    pd.testing.assert_frame_equal(mock_gen_player_sum.call_args[0][0], dummy_enriched)
+    mock_main_gen_player_sum.assert_called_once()
+    # Ensure DataFrame passed to gen_player_sum is the one from enrich
+    pd.testing.assert_frame_equal(mock_main_gen_player_sum.call_args[0][0], dummy_enriched)
 
-    mock_gen_team_sum.assert_called_once()
-    # mock_gen_team_sum is called with (player_summaries, player_to_team_map)
-    assert mock_gen_team_sum.call_args[0][0] == dummy_player_summaries
-    # player_to_team_map is generated internally, check it's a dict
-    assert isinstance(mock_gen_team_sum.call_args[0][1], dict)
+    mock_main_gen_team_sum.assert_called_once()
+    assert mock_main_gen_team_sum.call_args[0][0] == dummy_player_summaries
+    assert isinstance(mock_main_gen_team_sum.call_args[0][1], dict)
 
 
 @pytest.mark.asyncio
-@patch.object(data_loader, 'load_tracking_data')
-async def test_process_match_data_background_tracking_load_fails(mock_load_tracking):
+@patch('python_api.src.api.main.load_tracking_data') # Target where it's used
+async def test_process_match_data_background_tracking_load_fails(mock_main_load_tracking):
     match_id = "bg_test_load_fail"
-    tracking_path = Path("/fake/tracking_fails.parquet")
-    event_path = Path("/fake/events_ok.parquet")
+    tracking_path = Path("/fake/tracking_fails.gzip") # Updated extension
+    event_path = Path("/fake/events_ok.gzip")     # Updated extension
 
-    mock_load_tracking.return_value = pd.DataFrame() # Empty DataFrame indicates load failure
+    mock_main_load_tracking.return_value = pd.DataFrame() # Empty DataFrame indicates load failure
 
-    await _process_match_data_background(match_id, tracking_path, event_path)
+    # We also need to mock load_event_data for this test, otherwise it will try to load real file
+    with patch('python_api.src.api.main.load_event_data') as mock_main_load_event_ignored:
+        mock_main_load_event_ignored.return_value = get_dummy_event_df() # Return some valid event data
+        await _process_match_data_background(match_id, tracking_path, event_path)
 
     assert match_id in processed_match_data_cache
     cache_item = processed_match_data_cache[match_id]

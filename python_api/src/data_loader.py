@@ -85,16 +85,16 @@ if __name__ == '__main__':
     print("Attempting to load dummy data (files likely don't exist unless created separately):")
 
     # Dummy file paths
-    dummy_tracking_path = Path("dummy_tracking.parquet")
-    dummy_event_path = Path("dummy_event.parquet")
+    dummy_tracking_path = Path("dummy_tracking.gzip") # Updated extension
+    dummy_event_path = Path("dummy_event.gzip")   # Updated extension
 
     # Create dummy data for tracking
     # sample_tracking_df = pd.DataFrame({col: [] for col in EXPECTED_TRACKING_COLS})
-    # sample_tracking_df.to_parquet(dummy_tracking_path) # Requires pyarrow
+    # sample_tracking_df.to_parquet(dummy_tracking_path, compression='gzip') # Requires pyarrow
 
     # Create dummy data for events
     # sample_event_df = pd.DataFrame({col: [] for col in EXPECTED_EVENT_COLS})
-    # sample_event_df.to_parquet(dummy_event_path) # Requires pyarrow
+    # sample_event_df.to_parquet(dummy_event_path, compression='gzip') # Requires pyarrow
 
     tracking_data = load_tracking_data(dummy_tracking_path)
     if tracking_data.empty:
@@ -115,12 +115,12 @@ if __name__ == '__main__':
     # df_track = pd.DataFrame({'timestamp_ms': [0, 100], 'x': [1,2], 'y': [3,4],
     #                          'player_id': ['p1', 'p1'], 'team_id': ['tA', 'tA'],
     #                          'smooth_x_speed': [0.1,0.2], 'smooth_y_speed': [0.1,0.1]})
-    # df_track.to_parquet(dummy_tracking_path)
+    # df_track.to_parquet(dummy_tracking_path, compression='gzip') # Added compression
     #
     # df_event = pd.DataFrame({'event_id': [1,2], 'event_type': ['PASS', 'SHOT'], 'timestamp_ms': [50, 90],
     #                          'player_id': ['p1', 'p1'], 'team_id': ['tA', 'tA'],
     #                          'start_x': [1,2], 'start_y':[3,4], 'end_x':[5,6], 'end_y':[7,8]})
-    # df_event.to_parquet(dummy_event_path)
+    # df_event.to_parquet(dummy_event_path, compression='gzip') # Added compression
     #
     # Then run the load functions again.
     # Make sure 'pyarrow' is in your [tool.poetry.dependencies] in pyproject.toml
