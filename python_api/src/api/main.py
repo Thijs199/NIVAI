@@ -3,6 +3,7 @@ from pathlib import Path
 import uuid
 import logging
 from typing import Dict, Any
+import pandas as pd
 
 # Pydantic Models
 from .models import ProcessMatchRequest, BasicResponse, StatusResponse
@@ -127,7 +128,7 @@ async def get_match_status(match_id: str):
         raise HTTPException(status_code=404, detail="Match ID not found.")
 
     status = cache_entry.get("status", "unknown")
-    message = cache_entry.get("message") if status == "error" else None
+    message = cache_entry.get("message") # Return message regardless of status if present
 
     return StatusResponse(status=status, match_id=match_id, message=message)
 

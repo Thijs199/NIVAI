@@ -35,7 +35,7 @@ def test_load_tracking_data_success(mock_read_parquet, caplog_fixture):
     mock_df = pd.DataFrame(dummy_df_content)
     mock_read_parquet.return_value = mock_df
 
-    file_path = Path("dummy_tracking.parquet")
+    file_path = Path("dummy_tracking.gzip") # Updated extension
     result_df = load_tracking_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -49,7 +49,7 @@ def test_load_tracking_data_missing_essential_cols(mock_read_parquet, caplog_fix
     mock_df = pd.DataFrame(dummy_df_content)
     mock_read_parquet.return_value = mock_df
 
-    file_path = Path("dummy_tracking_missing_cols.parquet")
+    file_path = Path("dummy_tracking_missing_cols.gzip") # Updated extension
     result_df = load_tracking_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -61,7 +61,7 @@ def test_load_tracking_data_missing_essential_cols(mock_read_parquet, caplog_fix
 def test_load_tracking_data_file_not_found(mock_read_parquet, caplog_fixture):
     mock_read_parquet.side_effect = FileNotFoundError("File not found")
 
-    file_path = Path("non_existent_tracking.parquet")
+    file_path = Path("non_existent_tracking.gzip") # Updated extension
     result_df = load_tracking_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -73,7 +73,7 @@ def test_load_tracking_data_file_not_found(mock_read_parquet, caplog_fixture):
 def test_load_tracking_data_generic_exception(mock_read_parquet, caplog_fixture):
     mock_read_parquet.side_effect = Exception("Some generic Parquet error")
 
-    file_path = Path("error_tracking.parquet")
+    file_path = Path("error_tracking.gzip") # Updated extension
     result_df = load_tracking_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -93,8 +93,8 @@ def test_load_tracking_data_path_conversion():
 
 
     with patch('python_api.src.data_loader.pd.read_parquet', return_value=mock_df_with_all_cols) as mock_read_parquet_conv:
-        load_tracking_data("dummy_tracking_str_path.parquet")
-        mock_read_parquet_conv.assert_called_once_with(Path("dummy_tracking_str_path.parquet"))
+        load_tracking_data("dummy_tracking_str_path.gzip") # Updated extension
+        mock_read_parquet_conv.assert_called_once_with(Path("dummy_tracking_str_path.gzip")) # Updated extension
 
 
 # --- Tests for load_event_data ---
@@ -114,7 +114,7 @@ def test_load_event_data_success(mock_read_parquet, caplog_fixture):
     mock_df = pd.DataFrame(dummy_df_content)
     mock_read_parquet.return_value = mock_df
 
-    file_path = Path("dummy_event.parquet")
+    file_path = Path("dummy_event.gzip") # Updated extension
     result_df = load_event_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -128,7 +128,7 @@ def test_load_event_data_missing_essential_cols(mock_read_parquet, caplog_fixtur
     mock_df = pd.DataFrame(dummy_df_content)
     mock_read_parquet.return_value = mock_df
 
-    file_path = Path("dummy_event_missing_cols.parquet")
+    file_path = Path("dummy_event_missing_cols.gzip") # Updated extension
     result_df = load_event_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -140,7 +140,7 @@ def test_load_event_data_missing_essential_cols(mock_read_parquet, caplog_fixtur
 def test_load_event_data_file_not_found(mock_read_parquet, caplog_fixture):
     mock_read_parquet.side_effect = FileNotFoundError("File not found")
 
-    file_path = Path("non_existent_event.parquet")
+    file_path = Path("non_existent_event.gzip") # Updated extension
     result_df = load_event_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -152,7 +152,7 @@ def test_load_event_data_file_not_found(mock_read_parquet, caplog_fixture):
 def test_load_event_data_generic_exception(mock_read_parquet, caplog_fixture):
     mock_read_parquet.side_effect = Exception("Some generic Parquet error for event")
 
-    file_path = Path("error_event.parquet")
+    file_path = Path("error_event.gzip") # Updated extension
     result_df = load_event_data(file_path)
 
     mock_read_parquet.assert_called_once_with(file_path)
@@ -172,5 +172,5 @@ def test_load_event_data_path_conversion():
 
 
     with patch('python_api.src.data_loader.pd.read_parquet', return_value=mock_df_with_all_cols) as mock_read_parquet_conv:
-        load_event_data("dummy_event_str_path.parquet")
-        mock_read_parquet_conv.assert_called_once_with(Path("dummy_event_str_path.parquet"))
+        load_event_data("dummy_event_str_path.gzip") # Updated extension
+        mock_read_parquet_conv.assert_called_once_with(Path("dummy_event_str_path.gzip")) # Updated extension
