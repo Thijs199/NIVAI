@@ -5,6 +5,7 @@ services:
       dockerfile: ./infrastructure/docker/frontend.Dockerfile
     ports:
       - "3000:3000"
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://backend:8080/api/v1
     depends_on:
@@ -16,6 +17,7 @@ services:
       dockerfile: ./infrastructure/docker/backend.Dockerfile
     ports:
       - "8080:8080"
+    restart: unless-stopped
     environment:
       PYTHON_API_URL: http://python-api:8081
       EXTERNAL_DATA_MOUNT: /data/shared
@@ -43,6 +45,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8081:8081"
+    restart: unless-stopped
     volumes:
       - shared_data:/data/shared
     environment:
@@ -56,11 +59,13 @@ services:
       - POSTGRES_DB=mydatabase
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
   redis-db:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    restart: unless-stopped
 
 volumes:
   shared_data: {}
