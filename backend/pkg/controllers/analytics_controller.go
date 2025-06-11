@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -52,7 +52,7 @@ func (ac *AnalyticsController) relayRequest(w http.ResponseWriter, r *http.Reque
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("[%s] Error reading response body from Python API (%s): %v", handlerName, targetUrl, err)
 		http.Error(w, "Error reading response from analytics service", http.StatusInternalServerError)

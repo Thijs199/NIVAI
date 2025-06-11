@@ -3,7 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -99,7 +99,7 @@ func (mc *MatchController) getAnalyticsStatus(matchID string, wg *sync.WaitGroup
 				analyticsStatus = statusResp.Status
 			}
 		} else {
-			bodyBytes, _ := ioutil.ReadAll(resp.Body) // Read body for more context on error
+			bodyBytes, _ := io.ReadAll(resp.Body) // Read body for more context on error
 			log.Printf("Non-OK status (%s) fetching analytics status for match %s: %s", resp.Status, matchID, string(bodyBytes))
 			analyticsStatus = fmt.Sprintf("error_status_%d", resp.StatusCode)
 			anError = fmt.Errorf("status %d: %s", resp.StatusCode, string(bodyBytes))

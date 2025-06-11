@@ -170,24 +170,6 @@ func (mwc *MockWriteCloser) Close() error {
 	return nil
 }
 
-// mockPythonProcessMatchApi
-func mockPythonProcessMatchApi(t *testing.T, expectedMatchID string, expectedTrackingPath string, expectedEventPath string) *httptest.Server {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/process-match", r.URL.Path)
-		assert.Equal(t, "POST", r.Method)
-		var body map[string]string
-		err := json.NewDecoder(r.Body).Decode(&body)
-		require.NoError(t, err)
-		assert.Equal(t, expectedMatchID, body["match_id"])
-		assert.Equal(t, expectedTrackingPath, body["tracking_data_path"])
-		assert.Equal(t, expectedEventPath, body["event_data_path"]) // Corrected key
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]interface{}{"message": "Processing started by mock", "match_id": expectedMatchID})
-	}))
-	return server
-}
-
 func TestUploadVideo(t *testing.T) {
 	t.Run("Successful upload of all files", func(t *testing.T) {
 		mockVideoRepo := new(MockVideoRepository)
