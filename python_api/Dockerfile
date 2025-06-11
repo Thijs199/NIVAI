@@ -1,5 +1,5 @@
-# 1. Start from the python:3.13-slim base image
-FROM python:3.13-slim
+# 1. Start from the python:3.12-slim base image
+FROM python:3.12-slim
 
 # 2. Install Poetry
 RUN pip install poetry
@@ -7,8 +7,8 @@ RUN pip install poetry
 # 3. Set the working directory to /app
 WORKDIR /app
 
-# 4. Copy pyproject.toml and poetry.lock files
-COPY pyproject.toml poetry.lock /app/
+# 4. Copy pyproject.toml file first
+COPY pyproject.toml /app/
 
 # Install cmake and g++ for pyarrow build
 RUN apt-get update && apt-get install -y cmake g++
@@ -16,12 +16,15 @@ RUN apt-get update && apt-get install -y cmake g++
 # 5. Configure Poetry to not create virtual environment (we're in a container)
 RUN poetry config virtualenvs.create false
 
-# 6. Copy the src directory (and any other necessary project files)
+# 6. Generate fresh lock file based on pyproject.toml
+RUN poetry lock
+
+# 7. Copy the src directory (and any other necessary project files)
 COPY src /app/src/
 # If there are other directories like 'tests' or other files needed for installation, copy them too.
 # For now, assuming only 'src' is needed for the 'main' dependencies.
 
-# 7. Install dependencies and the project itself
+# 8. Install dependencies and the project itself
 RUN poetry install --only main --no-interaction --no-ansi
 
 # 9. Expose port 8081
