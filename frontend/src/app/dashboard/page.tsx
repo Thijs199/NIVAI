@@ -4,7 +4,127 @@
  *
  * @returns The dashboard page component
  */
+
+"use client";
+
+import React, { useEffect, useState } from 'react';
+// Adjust path if your types/api files are located differently
+import { MatchListItem, MatchAnalyticsSummary, PlayerSummaryStats } from '../../types/analytics';
+import { fetchMatches, fetchMatchAnalyticsSummary } from '../../lib/api';
+
 export default function Dashboard() {
+  const [matches, setMatches] = useState<MatchListItem[]>([]);
+  const [recentMatchesForDisplay, setRecentMatchesForDisplay] = useState<MatchListItem[]>([]);
+  const [topSpeedRecord, setTopSpeedRecord] = useState<{ value: number; player: string; matchName: string } | null>(null);
+  const [latestMatchPlayerPerformance, setLatestMatchPlayerPerformance] = useState<PlayerSummaryStats[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(true);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true); // Start true as analytics loads after matches
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      setIsLoadingMatches(true);
+      setError(null);
+      try {
+        const fetchedMatches = await fetchMatches();
+        const sortedMatches = [...fetchedMatches].sort((a, b) => new Date(b.upload_date).getTime() - new Date(a.upload_date).getTime());
+        setMatches(sortedMatches);
+        setRecentMatchesForDisplay(sortedMatches.slice(0, 3));
+      } catch (err) {
+        console.error("Error fetching matches:", err);
+        setError(err instanceof Error ? err.message : "Unknown error fetching matches");
+      } finally {
+        setIsLoadingMatches(false);
+      }
+    }
+    loadDashboardData();
+  }, []);
+
+  useEffect(() => {
+    async function loadAnalyticsData() {
+      if (matches.length === 0) {
+        setIsLoadingAnalytics(false);
+        return;
+      }
+
+      setIsLoadingAnalytics(true);
+      // setError(null); // Don't reset error if matches loading failed previously. Only for analytics specific errors.
+
+      let overallTopSpeed = 0;
+      let topSpeedPlayerInfo = "N/A";
+      let topSpeedMatchName = "N/A";
+
+      const processedMatches = matches.filter(m => m.analytics_status === 'processed' || m.analytics_status === 'completed');
+
+      if (processedMatches.length === 0) {
+         setIsLoadingAnalytics(false);
+         setTopSpeedRecord(null); // No processed matches, so no top speed.
+         setLatestMatchPlayerPerformance([]); // No player performance data.
+         return;
+      }
+
+      let analyticsErrorOccurred = false;
+
+      // For Top Speed Record - Analyze up to 5 recent processed matches
+      for (const match of processedMatches.slice(0, 5)) {
+        try {
+          const summary = await fetchMatchAnalyticsSummary(match.id);
+          if (summary.players) {
+            for (const playerId in summary.players) {
+              const playerStats = summary.players[playerId];
+              if (playerStats.max_speed_kmh > overallTopSpeed) {
+                overallTopSpeed = playerStats.max_speed_kmh;
+                topSpeedPlayerInfo = `Player ${playerId.substring(0, 6)}`;
+                topSpeedMatchName = match.match_name || `Match ${match.id.substring(0,6)}`;
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Error fetching analytics for top speed (match ${match.id}):`, err);
+          analyticsErrorOccurred = true;
+        }
+      }
+      if (overallTopSpeed > 0) {
+        setTopSpeedRecord({ value: overallTopSpeed, player: topSpeedPlayerInfo, matchName: topSpeedMatchName });
+      } else if (!analyticsErrorOccurred) { // If no errors but no speed, set to null
+         setTopSpeedRecord(null);
+      }
+
+
+      // For Player Performance Widget - Use the most recent processed match
+      const latestProcessedMatch = processedMatches[0];
+      if (latestProcessedMatch) {
+        try {
+          const summary = await fetchMatchAnalyticsSummary(latestProcessedMatch.id);
+          const playersArray = Object.entries(summary.players).map(([id, stats]) => ({
+              player_id: id,
+              ...stats
+          }));
+          const sortedPlayers = playersArray.sort((a, b) => b.max_speed_kmh - a.max_speed_kmh).slice(0, 4);
+          setLatestMatchPlayerPerformance(sortedPlayers);
+        } catch (err) {
+          console.error(`Error fetching analytics for player performance (match ${latestProcessedMatch.id}):`, err);
+          setError(err instanceof Error ? err.message : "Unknown error fetching player performance"); // Set specific error for this part
+          setLatestMatchPlayerPerformance([]); // Clear previous data on error
+        }
+      } else {
+         setLatestMatchPlayerPerformance([]); // No processed matches for player performance
+      }
+
+      if (analyticsErrorOccurred && !error) { // If there was a partial error during top speed scan, set a general message
+         setError("Some analytics data could not be loaded.");
+      }
+
+      setIsLoadingAnalytics(false);
+    }
+
+    if (!isLoadingMatches && matches.length > 0) {
+      loadAnalyticsData();
+    } else if (!isLoadingMatches && matches.length === 0) {
+      setIsLoadingAnalytics(false);
+    }
+  }, [matches, isLoadingMatches]);
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Dashboard Header */}
@@ -84,13 +204,19 @@ export default function Dashboard() {
             <div className="px-4 py-5 sm:p-6">
               <dl>
                 <dt className="text-sm font-medium text-gray-500 truncate">Top Speed Record</dt>
-                <dd className="mt-1 text-3xl font-semibold text-gray-900">36.2 km/h</dd>
+                {isLoadingAnalytics ? (
+                  <dd className="mt-1 text-3xl font-semibold text-gray-400">Loading...</dd>
+                ) : topSpeedRecord ? (
+                  <dd className="mt-1 text-3xl font-semibold text-gray-900">{topSpeedRecord.value.toFixed(1)} km/h</dd>
+                ) : (
+                  <dd className="mt-1 text-3xl font-semibold text-gray-400">N/A</dd>
+                )}
               </dl>
             </div>
             <div className="bg-gray-50 px-4 py-2">
               <div className="text-sm flex justify-between">
-                <span className="font-medium text-blue-700">View player</span>
-                <span className="text-gray-600">J. Timber - Ajax</span>
+                <span className="font-medium text-blue-700">Player Details</span>
+                {topSpeedRecord ? (<span className="text-gray-600 truncate" title={`${topSpeedRecord.player} - ${topSpeedRecord.matchName}`}>{topSpeedRecord.player} - {topSpeedRecord.matchName}</span>) : (<span className="text-gray-400">N/A</span>)}
               </div>
             </div>
           </div>
@@ -124,90 +250,35 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">
-                Player Performance
+                Player Performance (Last Processed Match)
               </h3>
+              {isLoadingAnalytics && <p className="text-sm text-gray-500">Loading performance data...</p>}
+              {!isLoadingAnalytics && error && latestMatchPlayerPerformance.length === 0 && <p className="text-sm text-red-500">Error: {error}</p>}
+              {!isLoadingAnalytics && !error && latestMatchPlayerPerformance.length === 0 && <p className="text-sm text-gray-500">No player performance data available for the latest processed match.</p>}
               <div className="space-y-4">
-                {/* Player 1 */}
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-xs font-medium">AM</span>
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">Antony Matheus</h4>
-                      <span className="text-sm text-gray-500">Ajax</span>
+                {latestMatchPlayerPerformance.map(player => (
+                  <div key={player.player_id} className="flex items-center">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                      <span className="text-xs font-medium text-gray-700">{(player.player_id || 'P').substring(0,2).toUpperCase()}</span>
                     </div>
-                    <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '87%' }}></div>
-                    </div>
-                  </div>
-                  <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">8.7</span>
-                  </div>
-                </div>
-
-                {/* Player 2 */}
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-xs font-medium">JT</span>
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">Jurriën Timber</h4>
-                      <span className="text-sm text-gray-500">Ajax</span>
-                    </div>
-                    <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '82%' }}></div>
+                    <div className="ml-4 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-900 truncate" title={`Player ${(player.player_id || 'Unknown').substring(0,6)}`}>Player {(player.player_id || 'Unknown').substring(0,6)}</h4>
+                      </div>
+                      <div className="mt-1 text-xs text-gray-600">
+                        Max Speed: <span className="font-semibold">{player.max_speed_kmh.toFixed(1)} km/h</span> |
+                        Distance: <span className="font-semibold">{(player.total_distance_m / 1000).toFixed(2)} km</span>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Sprints Dist: <span className="font-semibold">{player.total_sprint_distance_m.toFixed(0)}m</span> |
+                        Accels: <span className="font-semibold">{player.num_accelerations}</span> |
+                        Decels: <span className="font-semibold">{player.num_decelerations}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">8.2</span>
-                  </div>
-                </div>
-
-                {/* Player 3 */}
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-xs font-medium">CV</span>
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">Cody Vipko</h4>
-                      <span className="text-sm text-gray-500">PSV</span>
-                    </div>
-                    <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '78%' }}></div>
-                    </div>
-                  </div>
-                  <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">7.8</span>
-                  </div>
-                </div>
-
-                {/* Player 4 */}
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-xs font-medium">DK</span>
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">Daley Klaassen</h4>
-                      <span className="text-sm text-gray-500">Ajax</span>
-                    </div>
-                    <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: '75%' }}></div>
-                    </div>
-                  </div>
-                  <div className="ml-2">
-                    <span className="text-sm font-medium text-gray-900">7.5</span>
-                  </div>
-                </div>
+                ))}
               </div>
-              <div className="mt-4 flex justify-end">
-                <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 hover:bg-blue-50">
-                  View All Players
-                </button>
-              </div>
+              {/* Optional: "View All Players" button if more detailed view is available */}
             </div>
           </div>
         </div>
@@ -218,84 +289,41 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg lg:col-span-2">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">Recent Matches</h3>
+              {isLoadingMatches && <p className="text-sm text-gray-500">Loading matches...</p>}
+              {error && !isLoadingMatches && <p className="text-sm text-red-500">Error loading matches: {error}</p>}
+              {!isLoadingMatches && !error && recentMatchesForDisplay.length === 0 && <p className="text-sm text-gray-500">No matches found.</p>}
               <div className="space-y-3">
-                {/* Match 1 */}
-                <div className="border border-gray-200 rounded-md p-4 hover:border-blue-500 transition-colors duration-200 cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <span className="text-sm font-medium">May 14</span>
-                      <span className="text-gray-500">|</span>
-                      <span className="font-medium">Ajax 3 - 1 PSV</span>
+                {recentMatchesForDisplay.map(match => (
+                  <div key={match.id} className="border border-gray-200 rounded-md p-4 hover:border-blue-500 transition-colors duration-200 cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <span className="text-sm font-medium">{new Date(match.upload_date).toLocaleDateString()}</span>
+                        <span className="text-gray-500">|</span>
+                        <span className="font-medium truncate pr-2" title={match.match_name || `${match.home_team || 'Home'} vs ${match.away_team || 'Away'}`}>{match.match_name || `${match.home_team || 'Home'} vs ${match.away_team || 'Away'}`}</span>
+                      </div>
+                      <div>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          match.analytics_status === 'processed' || match.analytics_status === 'completed' ? 'bg-green-100 text-green-800' :
+                          match.analytics_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          match.analytics_status && (match.analytics_status.startsWith('error') || match.analytics_status === 'failed') ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {match.analytics_status ? match.analytics_status.replace(/_/g, ' ').toLowerCase() : 'Unknown'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Complete
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                      Possession: 58% | Shots: 12 | Passes: 472
-                    </div>
-                    <button className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500">
-                      View Analysis
-                    </button>
-                  </div>
-                </div>
-
-                {/* Match 2 */}
-                <div className="border border-gray-200 rounded-md p-4 hover:border-blue-500 transition-colors duration-200 cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <span className="text-sm font-medium">May 7</span>
-                      <span className="text-gray-500">|</span>
-                      <span className="font-medium">Feyenoord 2 - 0 AZ</span>
-                    </div>
-                    <div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Complete
-                      </span>
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="text-sm text-gray-500 truncate">
+                        Comp: {match.competition || 'N/A'} | Season: {match.season || 'N/A'}
+                      </div>
+                      <button className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500">
+                        View Analysis
+                      </button>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                      Possession: 62% | Shots: 14 | Passes: 508
-                    </div>
-                    <button className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500">
-                      View Analysis
-                    </button>
-                  </div>
-                </div>
-
-                {/* Match 3 */}
-                <div className="border border-gray-200 rounded-md p-4 hover:border-blue-500 transition-colors duration-200 cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <span className="text-sm font-medium">May 1</span>
-                      <span className="text-gray-500">|</span>
-                      <span className="font-medium">FC Utrecht 1 - 3 FC Twente</span>
-                    </div>
-                    <div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        Processing
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                      Possession: 45% | Shots: 8 | Passes: 346
-                    </div>
-                    <button className="inline-flex items-center text-sm font-medium text-gray-400 cursor-not-allowed">
-                      Analysis Pending
-                    </button>
-                  </div>
-                </div>
+                ))}
               </div>
-              <div className="mt-4 flex justify-end">
-                <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 hover:bg-blue-50">
-                  View All Matches
-                </button>
-              </div>
+              {/* Potentially add a "View All Matches" button if matches.length > recentMatchesForDisplay.length */}
             </div>
           </div>
 

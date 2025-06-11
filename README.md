@@ -250,6 +250,27 @@ This is the recommended way to run the entire AIFAA Football Analytics Platform 
 
 2.  **Shared Data:** The `docker-compose.yml` defines a named volume (`shared_data`) that is mounted into both the Go Backend (`/data/shared`) and the Python API (`/data/shared`). This volume is used for storing uploaded match files (tracking data, event data) so that the Python API can access files saved by the Go Backend. The `EXTERNAL_DATA_MOUNT` environment variable for the Go Backend is set to `/data/shared` within its container.
 
+3.  **Python API Data Access Configuration:**
+    The Python API service (`python-api`) in `docker-compose.yml` is configured with the following crucial environment variables to manage data access:
+    *   `STORAGE_TYPE`: Set to `"local"` by default in the provided `docker-compose.yml` to work with the shared volume. Can be changed to `"azure"` if Azure Blob Storage is used.
+    *   `PYTHON_API_DATA_PATH`: Set to `"/data/shared"`, which is the mount point of the `shared_data` volume within the Python API container. This allows it to access files written by the Go Backend service to the same shared volume.
+    *   `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_STORAGE_CONTAINER_NAME`: These should be set if `STORAGE_TYPE` is changed to `"azure"`. It's recommended to use a `.env` file at the project root to supply sensitive values like connection strings. For example:
+        ```
+        # In .env file
+        # AZURE_STORAGE_CONNECTION_STRING="your_connection_string_here"
+        # AZURE_STORAGE_CONTAINER_NAME="your_container_name"
+        ```
+      And then reference them in `docker-compose.yml` for the `python-api` service:
+        ```yaml
+        # In docker-compose.yml
+        # services:
+        #   python-api:
+        #     environment:
+        #       # ... other env vars
+        #       # AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING}
+        #       # AZURE_STORAGE_CONTAINER_NAME: ${AZURE_STORAGE_CONTAINER_NAME}
+        ```
+
 ### Running the Application
 
 1.  **Open a terminal** in the root directory of the project (where `docker-compose.yml` is located).
@@ -281,6 +302,17 @@ This is the recommended way to run the entire AIFAA Football Analytics Platform 
 *   The first time you run `docker-compose up --build`, it might take some time to download base images and build the application images.
 *   Log output from all services will be aggregated in your terminal if running in the foreground. If detached, use `docker-compose logs -f` to follow logs, or `docker-compose logs <service_name>` for specific service logs.
 *   The section "Manual Setup: Data Storage/Access Notes" below provides more context on how data is shared, which is handled by the Docker volume in this setup.
+
+## Deployment Considerations
+
+### Kubernetes Deployment Notes for Python API
+
+If deploying the Python API service to Kubernetes, ensure its Deployment manifest includes the necessary environment variables:
+- `STORAGE_TYPE`
+- `PYTHON_API_DATA_PATH` (if using shared persistent volumes corresponding to local storage)
+- `AZURE_STORAGE_CONNECTION_STRING` (preferably from a Secret)
+- `AZURE_STORAGE_CONTAINER_NAME`
+The exact configuration will depend on your Kubernetes setup for storage (e.g., PersistentVolumeClaims, Azure Blob CSI driver).
 
 ## Manual Setup: Prerequisites
 
@@ -317,6 +349,12 @@ Each service may require environment variables for proper configuration. It's re
 
 *   **Port & Host:** Configured directly in the `uvicorn` run command. Default is `0.0.0.0:8081`.
 *   No specific environment variables are strictly required by the Python API itself for its core logic, as file paths are passed to it via API requests. However, it needs read access to the `EXTERNAL_DATA_MOUNT` location specified for the Go backend.
+*   **`STORAGE_TYPE`**: Specifies the storage backend to use for reading data files.
+    *   Values: `"local"` or `"azure"`. Defaults to `"local"` if not set.
+*   **`PYTHON_API_DATA_PATH`**: Required if `STORAGE_TYPE` is `"local"`. This should be the absolute base path accessible by the Python API where match data (e.g., `match_id/tracking_data.parquet`) is stored. This path should correspond to the `EXTERNAL_DATA_MOUNT` used by the Go backend.
+    *   Example: `PYTHON_API_DATA_PATH=/data/shared` (when running in Docker Compose with shared volumes) or `/path/to/nivai_data_storage` (in a manual setup).
+*   **`AZURE_STORAGE_CONNECTION_STRING`**: Required if `STORAGE_TYPE` is `"azure"`. The connection string for your Azure Blob Storage account.
+*   **`AZURE_STORAGE_CONTAINER_NAME`**: Required if `STORAGE_TYPE` is `"azure"`. The name of the container within Azure Blob Storage where match files are stored.
 
 ### 2.3. Next.js Frontend (`frontend/`)
 

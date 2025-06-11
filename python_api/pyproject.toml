@@ -12,6 +12,7 @@ python = "^3.13"
 fastapi = "^0.104.1"
 uvicorn = {extras = ["standard"], version = "^0.23.2"}
 pyarrow = "^14.0.1" # Added for Parquet support
+azure-storage-blob = "^12.19.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
