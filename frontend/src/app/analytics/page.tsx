@@ -78,7 +78,8 @@ export default function AnalyticsPage() {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-700">Possession</span>
-                  <span className="text-sm font-medium text-gray-700">58%</                </div>
+                  <span className="text-sm font-medium text-gray-700">58%</span>
+                </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '58%'}}></div>
                 </div>
@@ -86,7 +87,8 @@ export default function AnalyticsPage() {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-700">Passing Accuracy</span>
-                  <span className="text-sm font-medium text-gray-700">82%</                </div>
+                  <span className="text-sm font-medium text-gray-700">82%</span>
+                </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '82%'}}></div>
                 </div>
@@ -94,7 +96,8 @@ export default function AnalyticsPage() {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-700">Shots on Target</span>
-                  <span className="text-sm font-medium text-gray-700">65%</                </div>
+                  <span className="text-sm font-medium text-gray-700">65%</span>
+                </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '65%'}}></div>
                 </div>
@@ -102,7 +105,8 @@ export default function AnalyticsPage() {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-medium text-gray-700">Defensive Actions</span>
-                  <span className="text-sm font-medium text-gray-700">74%</                </div>
+                  <span className="text-sm font-medium text-gray-700">74%</span>
+                </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div className="bg-blue-600 h-2.5 rounded-full" style={{width: '74%'}}></div>
                 </div>
@@ -253,7 +257,8 @@ export default function AnalyticsPage() {
                 <div className="flex justify-between text-sm text-gray-600 mb-1">
                   <span>87%</span>
                   <span className="font-medium">Pass Accuracy</span>
-                  <span>82%</                </div>
+                  <span>82%</span>
+                </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
                   <div className="bg-blue-600" style={{width: '51.5%'}}></div>
                   <div className="bg-red-600" style={{width: '48.5%'}}></div>

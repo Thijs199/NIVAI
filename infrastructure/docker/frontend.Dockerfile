@@ -8,6 +8,9 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json /app/
 RUN npm ci
 
+# Lint the application
+RUN npm run lint
+
 # Copy the rest of the application code
 COPY frontend/ /app/
 
