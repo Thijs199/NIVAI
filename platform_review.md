@@ -8,13 +8,12 @@ This document provides a review of the platform's current state, highlighting it
 ## 2. Strengths
 
 ### Architecture
-*   **Modularity & Separation of Concerns:** The platform is clearly divided into three core components: Frontend (Next.js), Go Backend, and Python API (FastAPI). The `technical_specification.md` also mentions a "Video & Data Processing Layer" using Rust, indicating further modularity.
-*   **Scalability:**
-    *   Use of Azure Kubernetes Service (AKS) for orchestrating backend services.
-    *   Azure Blob Storage for large files.
-    *   Go backend's concurrency features and the Python API's asynchronous processing.
-    *   PostgreSQL with TimescaleDB optimized for time-series data.
-*   **Clear Data Flow:** Detailed data flow for various operations (upload, status check, analytics retrieval) is documented.
+*   **Modularity & Separation of Concerns:** The platform is clearly divided into three core components (Frontend - Next.js, Go Backend, Python API - FastAPI) as per the current operational description in `README.md`. The `technical_specification.md` outlines further modularity with a planned Rust-based "Video & Data Processing Layer".
+*   **Scalability (Current & Planned):**
+    *   The current architecture with Go's concurrency and Python's async processing provides a foundation for scalability.
+    *   Planned enhancements like Azure Kubernetes Service (AKS) for orchestration, and optimized data handling (e.g., future TimescaleDB integration) will further bolster scalability.
+    *   Azure Blob Storage is used for scalable file storage.
+*   **Clear Data Flow:** Detailed data flow for current operations (upload, status check, analytics retrieval) is documented.
 
 ### Technology Choices
 *   **Suitability of Languages/Frameworks:**
@@ -22,14 +21,14 @@ This document provides a review of the platform's current state, highlighting it
     *   **Python API (FastAPI):** Modern, high-performance Python framework suitable for "intensive physical statistics calculations."
     *   **Next.js Frontend:** Provides "server-side rendering, high performance."
     *   **Rust (Video & Data Processing):** Chosen for "high-performance and safe concurrent video and data processing."
-    *   **Polars:** "Fast, Rust-based dataframe library" for handling large tracking data.
-*   **Specialized Tools:**
-    *   **FFmpeg:** Industry-standard for video processing.
+    *   **Polars:** Planned for use in the Rust layer as a "Fast, Rust-based dataframe library" for handling large tracking data.
+*   **Specialized Tools (Current & Planned):**
+    *   **FFmpeg:** Industry-standard for video processing (planned for deeper integration within the Rust layer).
     *   **OpenCV (Rust bindings):** For player and event tracking analytics.
-    *   **Pixi.js:** For high-speed, interactive animations for tracking data visualization.
+    *   **Pixi.js:** Planned for high-speed, interactive animations for tracking data visualization.
 
 ### Development Practices
-*   **Containerization (Docker):** Streamlined deployment and management using Docker and `docker-compose`.
+*   **Containerization (Docker):** Streamlined local deployment and management using Docker and `docker-compose`.
 *   **CI/CD:** GitHub Actions / GitLab CI for automated workflows.
 *   **Documentation:** Comprehensive `README.md` and `technical_specification.md`.
 *   **Infrastructure as Code (Terraform):** For reliable cloud provisioning on Azure.
@@ -38,14 +37,14 @@ This document provides a review of the platform's current state, highlighting it
 ### Features (Core Functionalities Implied or Stated)
 *   **Data Upload:** Supports videos, tracking files, and event files.
 *   **Match Management:** Listing matches and their analytics processing status.
-*   **Analytics Processing:** Orchestration of analytics pipeline for physical statistics, player metrics, and team analytics.
-*   **Data Visualization:** Dashboards and Pixi.js for tracking data animation.
+*   **Analytics Processing:** Orchestration of analytics pipeline (currently via Python API) for physical statistics, player metrics, and team analytics.
+*   **Data Visualization:** Dashboards for analytics. Future enhancements include advanced visualizations with Pixi.js.
 *   **User Authentication:** Handled by the Go Backend.
-*   **Real-time Updates:** WebSockets mentioned for Go backend.
-*   **Efficient Data Handling:** Use of Polars, TimescaleDB, Redis, lazy loading, and streaming.
+*   **Real-time Updates (Planned):** WebSockets are planned for the Go backend for real-time features.
+*   **Efficient Data Handling (Current & Planned):** Current system uses PostgreSQL. Planned enhancements include Polars (Rust layer), TimescaleDB, expanded Redis usage, and continued lazy loading/streaming.
 
 ### Potential & Benefits
-*   **Foundation for Future Development:** Modular architecture and modern technologies provide a strong base.
+*   **Foundation for Future Development:** The current modular architecture and planned adoption of technologies like Rust, Polars, and TimescaleDB provide a strong base for a highly performant and scalable system.
 *   **Performance:** Go and Rust offer potential for superior speed.
 *   **Rapid Iteration:** Simple syntax of Go and performance of Rust enable quick feature iterations.
 *   **Minimal Technical Debt:** Strong typing and compiled binaries simplify maintenance.

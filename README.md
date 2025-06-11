@@ -9,13 +9,13 @@ The platform consists of three main services:
 
 ## System Architecture Overview
 
-This section provides a high-level overview of the AIFAA Football Analytics Platform, detailing its components, how they interact, and the flow of data through the system.
+This section provides a high-level overview of the AIFAA Football Analytics Platform, detailing its current components, how they interact, the flow of data, and the future vision for architectural enhancements.
 
-The platform is designed to ingest football match data (videos, tracking information, event data), process it to extract valuable analytics, and present these insights to the user through a web interface.
+The platform is designed to ingest football match data (videos, tracking information, event data), process it to extract valuable analytics, and present these insights to the user through a web interface. It aims for superior speed, a perfect user experience, and LLM compatibility.
 
-### Components
+### Current Core Components
 
-The platform is comprised of three core components:
+The platform, in its current operational state, is comprised of three core services:
 
 *   **Frontend:** A Next.js (React) web application serving as the primary user interface. It allows users to:
     *   Upload match-related data (videos, tracking files, event files).
@@ -35,6 +35,38 @@ The platform is comprised of three core components:
     *   Reading data files from the shared storage location based on paths provided by the Go Backend.
     *   Performing intensive calculations to generate physical statistics, player metrics, and team analytics.
     *   Providing endpoints for the Go Backend to query the status of processing (`/match/{id}/status`) and retrieve the computed analytics data (e.g., `/match/{id}/stats/summary`, `/match/{id}/player/{player_id}/details`).
+
+### Planned Architectural Enhancements and Future Vision
+
+To achieve superior performance, scalability, and a richer feature set, the platform is envisioned to incorporate the following enhancements:
+
+*   **Video & Data Processing Layer (Rust-based):**
+    *   A high-performance layer utilizing **Rust**, **Polars** (Rust-based dataframe library), **FFmpeg**, and **OpenCV** (Rust bindings) is planned for intensive video and data processing tasks.
+    *   This layer aims to significantly boost performance for tasks like raw data transformation, clip generation, complex analytics, and potentially parts of the physical statistics calculations currently handled by the Python API.
+    *   It will work in conjunction with the Go Backend, which will orchestrate calls to this service. The interaction model might involve this Rust layer handling initial heavy processing, with the Python API focusing on higher-level analytics or tasks where its ecosystem is more advantageous.
+
+*   **Advanced Frontend Technologies:**
+    *   **Pixi.js (Canvas/WebGL):** To be used for rendering high-speed, interactive animations for tracking data visualization, offering a smoother user experience.
+    *   **EVO Video Player:** Planned for optimized HTML5 video streaming and advanced playback controls.
+    *   **HTMX & Alpine.js:** Potential integration for specific interactive components to minimize JavaScript overhead and enable rapid development of certain UI features, complementing the primary Next.js/React structure.
+
+*   **Enhanced Data Storage & Management:**
+    *   **PostgreSQL with TimescaleDB:** The PostgreSQL database will be augmented with the TimescaleDB extension to efficiently manage and query large volumes of time-series data.
+    *   **Redis:** Expanded use of Redis beyond potential internal Python API caching. It will be leveraged for broader platform caching (e.g., frequently accessed query results) and real-time session management to further improve performance and responsiveness.
+
+*   **Real-time Capabilities with WebSockets:**
+    *   The Go Backend plans to utilize **WebSockets (Gorilla library)** for efficient real-time data updates to the frontend (e.g., live match statistics, processing status updates, notifications).
+
+*   **Production-Grade Infrastructure & Monitoring:**
+    *   **Deployment:** The target production environment includes **Azure Kubernetes Service (AKS)** for scalable orchestration of backend services, managed using **Terraform** for infrastructure-as-code.
+    *   **Monitoring:** **Prometheus & Grafana** will be used for robust observability, metrics collection, and alerting to ensure high availability.
+
+*   **Optimization Strategies:**
+    *   The platform will continue to leverage lazy loading and streaming for data.
+    *   Future enhancements include exploring **predictive preloading** strategies, potentially ML-informed, to further enhance user experience.
+
+*   **LLM Compatibility:**
+    *   The technology choices (Go, Rust, Python) and clear API structures are designed to ensure strong support and compatibility for future integration with Large Language Models (LLMs) for advanced analytical features.
 
 ### Data Flow
 
@@ -199,6 +231,7 @@ The following diagram provides a simplified visual representation of the system 
 *   `PostgreSQL DB`: The relational database for metadata.
 *   `(API Calls)` / `(JSON API)`: Indicate typical RESTful API interactions.
 *   The diagram simplifies some aspects for clarity, such as detailed network configurations or specific authentication flows within API calls.
+*   **Note:** This diagram represents the current data flow. Future enhancements, particularly the integration of the Rust-based Video & Data Processing Layer, will introduce modifications to this flow, with the Go Backend orchestrating interactions with both the Python API and the Rust service.
 
 *(As per user suggestion, a more detailed Mermaid diagram could be added here in the future if desired.)*
 
