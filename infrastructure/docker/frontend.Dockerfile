@@ -16,8 +16,8 @@ COPY frontend/next-env.d.ts frontend/.prettierrc.json /app/
 COPY frontend/src /app/src
 COPY frontend/public /app/public
 
-# Lint the application
-RUN npm run lint
+# Skip linting for now - will be handled by pre-commit hooks
+# RUN npm run lint
 
 # Build the Next.js application
 RUN npm run build

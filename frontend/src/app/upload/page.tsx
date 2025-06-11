@@ -11,6 +11,7 @@ export default function UploadPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const handleFileChange =
     (setter: (file: File | null) => void) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -26,6 +27,7 @@ export default function UploadPage() {
     setIsLoading(true);
     setMessage(null);
     setMessageType(null);
+    setUploadProgress(0);
 
     if (!title.trim()) {
       setMessage('Match Name is required.');
@@ -60,41 +62,60 @@ export default function UploadPage() {
     // formData.append("description", "Match description placeholder");
     // formData.append("match_id", "client-generated-match-id"); // Go backend generates videoID which is used as match_id for processing
 
-    try {
-      const response = await fetch('/api/v1/videos', {
-        // Assuming Go backend is served on the same origin or proxied
-        method: 'POST',
-        body: formData,
-      });
+    const xhr = new XMLHttpRequest();
 
-      const data = await response.json();
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percentComplete = Math.round((event.loaded / event.total) * 100);
+        setUploadProgress(percentComplete);
+      }
+    };
 
-      if (response.ok) {
-        setMessage(
-          `Match uploaded successfully! Video ID: ${data.video_id}. Processing initiated.`
-        );
-        setMessageType('success');
-        // Reset form
-        setTitle('');
-        setVideoFile(null);
-        setTrackingFile(null);
-        setEventFile(null);
-        // Clear file input elements visually
-        const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
-        fileInputs.forEach((input) => (input.value = ''));
-      } else {
-        setMessage(`Upload failed: ${data.error || data.message || response.statusText}`);
+    xhr.onload = () => {
+      setIsLoading(false);
+      setUploadProgress(0);
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setMessage(
+            `Match uploaded successfully! Video ID: ${data.video_id}. Processing initiated.`
+          );
+          setMessageType('success');
+          // Reset form
+          setTitle('');
+          setVideoFile(null);
+          setTrackingFile(null);
+          setEventFile(null);
+          // Clear file input elements visually
+          const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+          fileInputs.forEach((input) => (input.value = ''));
+        } else {
+          setMessage(`Upload failed: ${data.error || data.message || xhr.statusText}`);
+          setMessageType('error');
+        }
+      } catch {
+        setMessage(`Upload failed: Error parsing server response. ${xhr.statusText}`);
         setMessageType('error');
       }
-    } catch (error) {
-      console.error('Upload error:', error);
-      setMessage(
-        `An unexpected error occurred during upload: ${error instanceof Error ? error.message : String(error)}`
-      );
-      setMessageType('error');
-    } finally {
+    };
+
+    xhr.onerror = () => {
       setIsLoading(false);
-    }
+      setUploadProgress(0);
+      setMessage('Upload failed: Network error or server unreachable.');
+      setMessageType('error');
+    };
+
+    xhr.onabort = () => {
+      setIsLoading(false);
+      setUploadProgress(0);
+      setMessage('Upload aborted by user.');
+      setMessageType('error');
+    };
+
+    xhr.open('POST', '/api/v1/videos', true);
+    // Do not set Content-Type header for FormData, browser does it.
+    xhr.send(formData);
   };
 
   // Basic styling using Tailwind CSS classes (assuming Tailwind is configured)
@@ -142,6 +163,7 @@ export default function UploadPage() {
             className={inputClass}
             disabled={isLoading}
           />
+          {videoFile && <p className="mt-1 text-sm text-slate-500">Selected: {videoFile.name}</p>}
         </div>
 
         <div>
@@ -158,6 +180,9 @@ export default function UploadPage() {
             required
             disabled={isLoading}
           />
+          {trackingFile && (
+            <p className="mt-1 text-sm text-slate-500">Selected: {trackingFile.name}</p>
+          )}
         </div>
 
         <div>
@@ -174,6 +199,7 @@ export default function UploadPage() {
             required
             disabled={isLoading}
           />
+          {eventFile && <p className="mt-1 text-sm text-slate-500">Selected: {eventFile.name}</p>}
         </div>
 
         {/* Example of other text input if needed for backend
@@ -192,8 +218,16 @@ export default function UploadPage() {
         */}
 
         <button type="submit" disabled={isLoading} className={buttonClass}>
-          {isLoading ? 'Uploading...' : 'Upload Match Data'}
+          {isLoading ? `Uploading... ${uploadProgress}%` : 'Upload Match Data'}
         </button>
+        {isLoading && uploadProgress > 0 && (
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+        )}
       </form>
 
       {message && (
